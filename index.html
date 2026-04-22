@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaya CDR Dashboard</title>
+    <!-- Bootstrap 5 + Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Auto-refresh every 30 seconds -->
+    <meta http-equiv="refresh" content="30">
+    <style>
+        body {
+            background: #f4f7fc;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            border-left: 6px solid #0d6efd;
+            height: 100%;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .stat-label {
+            color: #64748b;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+        .filter-section {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        .table-container {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        .table th {
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .badge-inbound { background-color: #10b981; color: white; }
+        .badge-outbound { background-color: #3b82f6; color: white; }
+        .btn-primary {
+            background-color: #2563eb;
+            border: none;
+            font-weight: 500;
+        }
+        .btn-primary:hover { background-color: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4 px-3 px-md-5">
+        <!-- Header -->
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <h1 class="display-6 fw-semibold" style="color: #0f172a;">
+                <i class="bi bi-telephone-inbound me-2" style="color: #2563eb;"></i>
+                Avaya Call Records
+            </h1>
+            <span class="badge bg-light text-dark p-2 px-3 rounded-pill">
+                <i class="bi bi-clock-history me-1"></i> Live Updates
+            </span>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row g-4 mb-4">
+            <div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card">
+                    <div class="stat-label"><i class="bi bi-telephone me-1"></i> Total Calls</div>
+                    <div class="stat-value">{{ summary.total_calls }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card" style="border-left-color: #8b5cf6;">
+                    <div class="stat-label"><i class="bi bi-hourglass-split me-1"></i> Talk Time</div>
+                    <div class="stat-value">{{ summary.total_duration }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card" style="border-left-color: #f59e0b;">
+                    <div class="stat-label"><i class="bi bi-clock me-1"></i> Avg. Duration</div>
+                    <div class="stat-value">{{ summary.avg_duration }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card" style="border-left-color: #06b6d4;">
+                    <div class="stat-label"><i class="bi bi-bell me-1"></i> Total Ring</div>
+                    <div class="stat-value">{{ summary.total_ring }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card" style="border-left-color: #e11d48;">
+                    <div class="stat-label"><i class="bi bi-pause-circle me-1"></i> Total Hold</div>
+                    <div class="stat-value">{{ summary.total_hold }}</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card" style="border-left-color: #ec4899;">
+                    <div class="stat-label"><i class="bi bi-currency-dollar me-1"></i> Total Cost</div>
+                    <div class="stat-value">${{ "%.2f"|format(summary.total_cost) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Panel -->
+        <div class="filter-section">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Start Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ filters.start_date }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">End Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ filters.end_date }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Direction</label>
+                    <select name="direction" class="form-select">
+                        <option value="">All</option>
+                        <option value="Inbound" {% if filters.direction == 'Inbound' %}selected{% endif %}>Inbound</option>
+                        <option value="Outbound" {% if filters.direction == 'Outbound' %}selected{% endif %}>Outbound</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Call Type</label>
+                    <select name="is_internal" class="form-select">
+                        <option value="">All</option>
+                        <option value="internal" {% if filters.is_internal == 'internal' %}selected{% endif %}>Internal</option>
+                        <option value="external" {% if filters.is_internal == 'external' %}selected{% endif %}>External</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Search</label>
+                    <input type="text" name="search" class="form-control" placeholder="Number, name..." value="{{ filters.search }}">
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Call Records Table -->
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-semibold mb-0"><i class="bi bi-list-ul me-2"></i>Call Details</h5>
+                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Duration</th>
+                            <th>Ring</th>
+                            <th>Hold</th>
+                            <th>Caller</th>
+                            <th>Direction</th>
+                            <th>Called</th>
+                            <th>Type</th>
+                            <th>From (Party1)</th>
+                            <th>To (Party2)</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in records %}
+                        <tr>
+                            <td><span class="text-nowrap">{{ row[1] }}</span></td>
+                            <td>{{ row[2] }}</td>
+                            <td>{{ row[3] }}s</td>
+                            <td>{{ row[10] }}s</td>
+                            <td>{{ row[4] }}</td>
+                            <td>
+                                <span class="badge {% if row[5] == 'Inbound' %}badge-inbound{% else %}badge-outbound{% endif %} px-3 py-2">
+                                    {{ row[5] }}
+                                </span>
+                            </td>
+                            <td>{{ row[6] }}</td>
+                            <td>
+                                {% if row[7] == 1 %}
+                                    <span class="badge bg-secondary">Internal</span>
+                                {% else %}
+                                    <span class="badge bg-info text-dark">External</span>
+                                {% endif %}
+                            </td>
+                            <td><strong>{{ row[8] }}</strong></td>
+                            <td>{{ row[9] }}</td>
+                            <td>${{ "%.2f"|format(row[11]) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="11" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                No records match your filters.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
