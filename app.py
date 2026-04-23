@@ -1,12 +1,18 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, make_response, send_file
 import sqlite3
 import socket
 import threading
 import csv
 import re
-import os
-from io import StringIO
-from datetime import timedelta
+import os                     # <-- ADD THIS LINE
+from io import StringIO, BytesIO
+from datetime import datetime, timedelta
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+
 
 app = Flask(__name__)
 
@@ -185,7 +191,6 @@ def tcp_listener():
 # -------------------------------------------------------------------
 @app.route('/')
 def index():
-    # Get filter parameters
     start_date = request.args.get('start_date', '')
     end_date = request.args.get('end_date', '')
     direction = request.args.get('direction', '')
@@ -193,18 +198,20 @@ def index():
     search = request.args.get('search', '')
 
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # This makes rows behave like dictionaries
     cursor = conn.cursor()
 
-    # Build WHERE clause dynamically
     conditions = []
     params = []
 
     if start_date:
+        start_date_formatted = start_date.replace('-', '/')
         conditions.append("call_start >= ?")
-        params.append(start_date + " 00:00:00")
+        params.append(start_date_formatted + " 00:00:00")
     if end_date:
+        end_date_formatted = end_date.replace('-', '/')
         conditions.append("call_start <= ?")
-        params.append(end_date + " 23:59:59")
+        params.append(end_date_formatted + " 23:59:59")
     if direction:
         conditions.append("direction = ?")
         params.append(direction)
@@ -214,15 +221,15 @@ def index():
         elif is_internal == 'external':
             conditions.append("is_internal = 0")
     if search:
-        conditions.append("(caller LIKE ? OR called_num LIKE ? OR party1_name LIKE ? OR party2_name LIKE ?)")
+        conditions.append("(caller LIKE ? OR called_num LIKE ? OR party1_name LIKE ?)")
         like = f"%{search}%"
-        params.extend([like, like, like, like])
+        params.extend([like, like, like])
 
     where_clause = ""
     if conditions:
         where_clause = "WHERE " + " AND ".join(conditions)
 
-    # Get filtered calls (including new fields)
+    # Fetch calls as dictionaries
     query = f"""
         SELECT id, call_start, duration_raw, ring_time, caller, direction,
                called_num, is_internal, party1_name, party2_name, hold_time, cost
@@ -234,7 +241,7 @@ def index():
     cursor.execute(query, params)
     calls = cursor.fetchall()
 
-    # Summary statistics
+    # Summary statistics (same filters)
     summary_query = f"""
         SELECT
             COUNT(*) as total_calls,
@@ -250,13 +257,13 @@ def index():
     stats = cursor.fetchone()
     conn.close()
 
-    # Format summary values
-    total_calls = stats[0] or 0
-    total_duration = str(timedelta(seconds=stats[1] if stats[1] else 0))
-    avg_duration = str(timedelta(seconds=int(stats[2] if stats[2] else 0)))
-    total_ring = str(timedelta(seconds=stats[3] if stats[3] else 0))
-    total_hold = str(timedelta(seconds=stats[4] if stats[4] else 0))
-    total_cost = round(stats[5] or 0, 2)
+    # Format summary
+    total_calls = stats['total_calls'] or 0
+    total_duration = str(timedelta(seconds=stats['total_seconds'] or 0))
+    avg_duration = str(timedelta(seconds=int(stats['avg_seconds'] or 0)))
+    total_ring = str(timedelta(seconds=stats['total_ring'] or 0))
+    total_hold = str(timedelta(seconds=stats['total_hold'] or 0))
+    total_cost = round(stats['total_cost'] or 0, 2)
 
     summary = {
         'total_calls': total_calls,
@@ -294,6 +301,608 @@ def raw_data():
     for row in rows:
         output += f"{row}\n"
     return f"<pre>{output}</pre>"
+
+
+
+@app.route('/reports')
+def reports():
+    """Show available report templates"""
+    return render_template('reports.html')
+
+
+@app.route('/report/<report_type>')
+def generate_report(report_type):
+    # Initialize filter variables from request arguments
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    direction = request.args.get('direction', '')
+    is_internal = request.args.get('is_internal', '')
+    search = request.args.get('search', '')
+
+    # Build WHERE clause
+    conditions = []
+    params = []
+
+    if start_date:
+        start_date_formatted = start_date.replace('-', '/')
+        conditions.append("call_start >= ?")
+        params.append(start_date_formatted + " 00:00:00")
+    if end_date:
+        end_date_formatted = end_date.replace('-', '/')
+        conditions.append("call_start <= ?")
+        params.append(end_date_formatted + " 23:59:59")
+    if direction:
+        conditions.append("direction = ?")
+        params.append(direction)
+    if is_internal:
+        if is_internal == 'internal':
+            conditions.append("is_internal = 1")
+        elif is_internal == 'external':
+            conditions.append("is_internal = 0")
+    if search:
+        conditions.append("(caller LIKE ? OR called_num LIKE ? OR party1_name LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
+
+    where_clause = ""
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # ----- Report Types -----
+    if report_type == 'daily_summary':
+        query = f"""
+            SELECT DATE(call_start) as date,
+                   COUNT(*) as total_calls,
+                   SUM(duration_seconds) as total_sec,
+                   SUM(ring_time) as total_ring,
+                   SUM(hold_time) as total_hold,
+                   SUM(cost) as total_cost
+            FROM calls
+            {where_clause}
+            GROUP BY DATE(call_start)
+            ORDER BY date DESC
+            LIMIT 30
+        """
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        headers = ['Date', 'Total Calls', 'Talk Time (sec)', 'Ring Time (sec)', 'Hold Time (sec)', 'Cost ($)']
+        title = 'Daily Call Summary'
+
+    elif report_type == 'top_callers':
+        query = f"""
+            SELECT caller, COUNT(*) as call_count,
+                   SUM(duration_seconds) as total_sec,
+                   SUM(cost) as total_cost
+            FROM calls
+            {where_clause}
+            GROUP BY caller
+            ORDER BY call_count DESC
+            LIMIT 20
+        """
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        headers = ['Caller', 'Call Count', 'Total Talk Time (sec)', 'Total Cost ($)']
+        title = 'Top Callers'
+
+    elif report_type == 'top_called':
+        query = f"""
+            SELECT called_num, COUNT(*) as call_count,
+                   SUM(duration_seconds) as total_sec,
+                   SUM(cost) as total_cost
+            FROM calls
+            {where_clause}
+            GROUP BY called_num
+            ORDER BY call_count DESC
+            LIMIT 20
+        """
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        headers = ['Called Number', 'Call Count', 'Total Talk Time (sec)', 'Total Cost ($)']
+        title = 'Top Called Numbers'
+
+    elif report_type == 'hourly_distribution':
+        query = f"""
+            SELECT strftime('%H', call_start) as hour,
+                   COUNT(*) as total_calls,
+                   SUM(duration_seconds) as total_sec
+            FROM calls
+            {where_clause}
+            GROUP BY hour
+            ORDER BY hour
+        """
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        headers = ['Hour', 'Total Calls', 'Total Talk Time (sec)']
+        title = 'Hourly Call Distribution'
+
+    elif report_type == 'cost_by_prefix':
+        # Get tariff rates
+        cursor.execute("SELECT prefix, rate_per_minute FROM tariffs")
+        tariffs = cursor.fetchall()
+
+        # Build query with proper WHERE handling
+        if conditions:
+            query = f"""
+                SELECT called_num, duration_seconds
+                FROM calls
+                WHERE {" AND ".join(conditions)} AND is_internal = 0
+            """
+        else:
+            query = """
+                SELECT called_num, duration_seconds
+                FROM calls
+                WHERE is_internal = 0
+            """
+        cursor.execute(query, params)
+        call_rows = cursor.fetchall()
+
+        prefix_costs = {}
+        for called_num, dur_sec in call_rows:
+            matched_prefix = 'local'
+            max_len = 0
+            for prefix, rate in tariffs:
+                if called_num.startswith(prefix) and len(prefix) > max_len:
+                    matched_prefix = prefix
+                    max_len = len(prefix)
+            minutes = dur_sec / 60.0
+            cost = minutes * (dict(tariffs).get(matched_prefix, 1.0))
+            prefix_costs[matched_prefix] = prefix_costs.get(matched_prefix, 0) + cost
+
+        rows = [(prefix, round(cost, 2)) for prefix, cost in prefix_costs.items()]
+        headers = ['Prefix', 'Total Cost ($)']
+        title = 'Cost by Tariff Prefix'
+
+    else:
+        conn.close()
+        return "Invalid report type", 400
+
+    conn.close()
+    return render_template('report_view.html',
+                           report_type=report_type,
+                           report_title=title,
+                           headers=headers,
+                           rows=rows,
+                           filters=request.args)
+
+
+@app.route('/report/<report_type>/export/csv')
+def export_csv(report_type):
+    # Re-generate report data (similar to above but without HTML)
+    # For simplicity, we'll reuse the generate_report logic but output CSV.
+    # Alternatively, you can factor out a function to get report data.
+    # We'll duplicate logic here for clarity.
+
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    direction = request.args.get('direction', '')
+    is_internal = request.args.get('is_internal', '')
+    search = request.args.get('search', '')
+
+    conditions = []
+    params = []
+    if start_date:
+        conditions.append("call_start >= ?")
+        params.append(start_date + " 00:00:00")
+    if end_date:
+        conditions.append("call_start <= ?")
+        params.append(end_date + " 23:59:59")
+    if direction:
+        conditions.append("direction = ?")
+        params.append(direction)
+    if is_internal:
+        if is_internal == 'internal':
+            conditions.append("is_internal = 1")
+        elif is_internal == 'external':
+            conditions.append("is_internal = 0")
+    if search:
+        conditions.append("(caller LIKE ? OR called_num LIKE ? OR party1_name LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
+    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Similar queries as above
+    if report_type == 'daily_summary':
+        query = f"""
+            SELECT DATE(call_start) as date, COUNT(*), SUM(duration_seconds),
+                   SUM(ring_time), SUM(hold_time), SUM(cost)
+            FROM calls {where_clause}
+            GROUP BY DATE(call_start) ORDER BY date DESC LIMIT 30
+        """
+        headers = ['Date', 'Total Calls', 'Talk Time (sec)', 'Ring Time (sec)', 'Hold Time (sec)', 'Cost ($)']
+    elif report_type == 'top_callers':
+        query = f"""
+            SELECT caller, COUNT(*), SUM(duration_seconds), SUM(cost)
+            FROM calls {where_clause}
+            GROUP BY caller ORDER BY COUNT(*) DESC LIMIT 20
+        """
+        headers = ['Caller', 'Call Count', 'Total Talk Time (sec)', 'Total Cost ($)']
+    elif report_type == 'top_called':
+        query = f"""
+            SELECT called_num, COUNT(*), SUM(duration_seconds), SUM(cost)
+            FROM calls {where_clause}
+            GROUP BY called_num ORDER BY COUNT(*) DESC LIMIT 20
+        """
+        headers = ['Called Number', 'Call Count', 'Total Talk Time (sec)', 'Total Cost ($)']
+    elif report_type == 'hourly_distribution':
+        query = f"""
+            SELECT strftime('%H', call_start) as hour, COUNT(*), SUM(duration_seconds)
+            FROM calls {where_clause}
+            GROUP BY hour ORDER BY hour
+        """
+        headers = ['Hour', 'Total Calls', 'Total Talk Time (sec)']
+    elif report_type == 'cost_by_prefix':
+        cursor.execute("SELECT prefix, rate_per_minute FROM tariffs")
+        tariffs = cursor.fetchall()
+        query = f"""
+            SELECT called_num, duration_seconds
+            FROM calls {where_clause} AND is_internal = 0
+        """
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        prefix_costs = {}
+        for called_num, dur_sec in rows:
+            matched_prefix = 'local'
+            max_len = 0
+            for prefix, rate in tariffs:
+                if called_num.startswith(prefix) and len(prefix) > max_len:
+                    matched_prefix = prefix
+                    max_len = len(prefix)
+            minutes = dur_sec / 60.0
+            cost = minutes * (dict(tariffs).get(matched_prefix, 1.0))
+            prefix_costs[matched_prefix] = prefix_costs.get(matched_prefix, 0) + cost
+        rows = [(prefix, round(cost,2)) for prefix, cost in prefix_costs.items()]
+        headers = ['Prefix', 'Total Cost ($)']
+        # Direct CSV generation
+        si = StringIO()
+        cw = csv.writer(si)
+        cw.writerow(headers)
+        cw.writerows(rows)
+        output = make_response(si.getvalue())
+        output.headers["Content-Disposition"] = f"attachment; filename={report_type}_report.csv"
+        output.headers["Content-type"] = "text/csv"
+        return output
+    else:
+        return "Invalid report type", 400
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(headers)
+    cw.writerows(rows)
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = f"attachment; filename={report_type}_report.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
+
+
+@app.route('/report/<report_type>/export/pdf')
+def export_pdf(report_type):
+    # Reuse data generation (same as CSV but output PDF)
+    # For brevity, we'll call export_csv logic and then convert to PDF.
+    # Better: refactor to a common data fetcher. Here's a direct implementation.
+
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    direction = request.args.get('direction', '')
+    is_internal = request.args.get('is_internal', '')
+    search = request.args.get('search', '')
+
+    conditions = []
+    params = []
+    if start_date:
+        conditions.append("call_start >= ?")
+        params.append(start_date + " 00:00:00")
+    if end_date:
+        conditions.append("call_start <= ?")
+        params.append(end_date + " 23:59:59")
+    if direction:
+        conditions.append("direction = ?")
+        params.append(direction)
+    if is_internal:
+        if is_internal == 'internal':
+            conditions.append("is_internal = 1")
+        elif is_internal == 'external':
+            conditions.append("is_internal = 0")
+    if search:
+        conditions.append("(caller LIKE ? OR called_num LIKE ? OR party1_name LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
+    where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    # Define query and headers per type (similar to CSV)
+    if report_type == 'daily_summary':
+        query = f"""
+            SELECT DATE(call_start) as date, COUNT(*), SUM(duration_seconds),
+                   SUM(ring_time), SUM(hold_time), SUM(cost)
+            FROM calls {where_clause}
+            GROUP BY DATE(call_start) ORDER BY date DESC LIMIT 30
+        """
+        headers = ['Date', 'Total Calls', 'Talk Time (sec)', 'Ring (sec)', 'Hold (sec)', 'Cost ($)']
+        title = "Daily Call Summary"
+    elif report_type == 'top_callers':
+        query = f"""
+            SELECT caller, COUNT(*), SUM(duration_seconds), SUM(cost)
+            FROM calls {where_clause}
+            GROUP BY caller ORDER BY COUNT(*) DESC LIMIT 20
+        """
+        headers = ['Caller', 'Call Count', 'Talk Time (sec)', 'Cost ($)']
+        title = "Top Callers"
+    elif report_type == 'top_called':
+        query = f"""
+            SELECT called_num, COUNT(*), SUM(duration_seconds), SUM(cost)
+            FROM calls {where_clause}
+            GROUP BY called_num ORDER BY COUNT(*) DESC LIMIT 20
+        """
+        headers = ['Called Number', 'Call Count', 'Talk Time (sec)', 'Cost ($)']
+        title = "Top Called Numbers"
+    elif report_type == 'hourly_distribution':
+        query = f"""
+            SELECT strftime('%H', call_start) as hour, COUNT(*), SUM(duration_seconds)
+            FROM calls {where_clause}
+            GROUP BY hour ORDER BY hour
+        """
+        headers = ['Hour', 'Total Calls', 'Talk Time (sec)']
+        title = "Hourly Call Distribution"
+    elif report_type == 'cost_by_prefix':
+        cursor.execute("SELECT prefix, rate_per_minute FROM tariffs")
+        tariffs = cursor.fetchall()
+        query = f"""
+            SELECT called_num, duration_seconds
+            FROM calls {where_clause} AND is_internal = 0
+        """
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        prefix_costs = {}
+        for called_num, dur_sec in rows:
+            matched_prefix = 'local'
+            max_len = 0
+            for prefix, rate in tariffs:
+                if called_num.startswith(prefix) and len(prefix) > max_len:
+                    matched_prefix = prefix
+                    max_len = len(prefix)
+            minutes = dur_sec / 60.0
+            cost = minutes * (dict(tariffs).get(matched_prefix, 1.0))
+            prefix_costs[matched_prefix] = prefix_costs.get(matched_prefix, 0) + cost
+        data = [[prefix, f"${cost:.2f}"] for prefix, cost in prefix_costs.items()]
+        headers = ['Prefix', 'Total Cost']
+        title = "Cost by Tariff Prefix"
+        # Generate PDF directly
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        elements = []
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle('Title', parent=styles['Heading1'], alignment=1, fontSize=16)
+        elements.append(Paragraph(title, title_style))
+        elements.append(Spacer(1, 0.2*inch))
+        # Create table
+        table_data = [headers] + data
+        t = Table(table_data)
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.grey),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('BOTTOMPADDING', (0,0), (-1,0), 12),
+            ('BACKGROUND', (0,1), (-1,-1), colors.beige),
+            ('GRID', (0,0), (-1,-1), 1, colors.black)
+        ]))
+        elements.append(t)
+        doc.build(elements)
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=f"{report_type}_report.pdf", mimetype='application/pdf')
+    else:
+        return "Invalid report type", 400
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    # Convert rows to list of lists (with formatting)
+    data = [list(row) for row in rows]
+    # Format numbers if needed
+    # For daily summary, format duration from seconds to HH:MM:SS? We'll keep raw for simplicity.
+
+    # Generate PDF
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+    elements = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], alignment=1, fontSize=16)
+    elements.append(Paragraph(title, title_style))
+    elements.append(Spacer(1, 0.2*inch))
+    # Add filter info
+    filter_text = f"Filters: {start_date or 'Any'} to {end_date or 'Any'}"
+    elements.append(Paragraph(filter_text, styles['Normal']))
+    elements.append(Spacer(1, 0.2*inch))
+
+    table_data = [headers] + data
+    t = Table(table_data)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('BACKGROUND', (0,1), (-1,-1), colors.beige),
+        ('GRID', (0,0), (-1,-1), 1, colors.black)
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name=f"{report_type}_report.pdf", mimetype='application/pdf')
+
+
+@app.route('/export/calls/csv')
+def export_calls_csv():
+    # Reuse filter parameters from the dashboard
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    direction = request.args.get('direction', '')
+    is_internal = request.args.get('is_internal', '')
+    search = request.args.get('search', '')
+
+    conditions = []
+    params = []
+
+    if start_date:
+        start_date_formatted = start_date.replace('-', '/')
+        conditions.append("call_start >= ?")
+        params.append(start_date_formatted + " 00:00:00")
+    if end_date:
+        end_date_formatted = end_date.replace('-', '/')
+        conditions.append("call_start <= ?")
+        params.append(end_date_formatted + " 23:59:59")
+    if direction:
+        conditions.append("direction = ?")
+        params.append(direction)
+    if is_internal:
+        if is_internal == 'internal':
+            conditions.append("is_internal = 1")
+        elif is_internal == 'external':
+            conditions.append("is_internal = 0")
+    if search:
+        conditions.append("(caller LIKE ? OR called_num LIKE ? OR party1_name LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
+
+    where_clause = ""
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    query = f"""
+        SELECT call_start, duration_raw, ring_time, caller, direction,
+               called_num, is_internal, party1_name, party2_name, hold_time, cost
+        FROM calls
+        {where_clause}
+        ORDER BY id DESC
+    """
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    headers = ['Call Start', 'Duration', 'Ring (sec)', 'Caller', 'Direction',
+               'Called Number', 'Internal?', 'Party1 Name', 'Party2 Name', 'Hold (sec)', 'Cost ($)']
+
+    si = StringIO()
+    cw = csv.writer(si)
+    cw.writerow(headers)
+    for row in rows:
+        # Convert internal flag to readable text
+        row_list = list(row)
+        row_list[6] = 'Yes' if row[6] else 'No'
+        cw.writerow(row_list)
+
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = "attachment; filename=call_details.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
+
+@app.route('/export/calls/pdf')
+def export_calls_pdf():
+    # Reuse same filter logic as above
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    direction = request.args.get('direction', '')
+    is_internal = request.args.get('is_internal', '')
+    search = request.args.get('search', '')
+
+    conditions = []
+    params = []
+
+    if start_date:
+        start_date_formatted = start_date.replace('-', '/')
+        conditions.append("call_start >= ?")
+        params.append(start_date_formatted + " 00:00:00")
+    if end_date:
+        end_date_formatted = end_date.replace('-', '/')
+        conditions.append("call_start <= ?")
+        params.append(end_date_formatted + " 23:59:59")
+    if direction:
+        conditions.append("direction = ?")
+        params.append(direction)
+    if is_internal:
+        if is_internal == 'internal':
+            conditions.append("is_internal = 1")
+        elif is_internal == 'external':
+            conditions.append("is_internal = 0")
+    if search:
+        conditions.append("(caller LIKE ? OR called_num LIKE ? OR party1_name LIKE ?)")
+        like = f"%{search}%"
+        params.extend([like, like, like])
+
+    where_clause = ""
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    query = f"""
+        SELECT call_start, duration_raw, ring_time, caller, direction,
+               called_num, is_internal, party1_name, party2_name, hold_time, cost
+        FROM calls
+        {where_clause}
+        ORDER BY id DESC
+    """
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+
+    # Convert rows to list of lists with formatted internal flag
+    data = []
+    for row in rows:
+        row_list = list(row)
+        row_list[6] = 'Yes' if row[6] else 'No'
+        data.append(row_list)
+
+    headers = ['Call Start', 'Duration', 'Ring (s)', 'Caller', 'Dir',
+               'Called Num', 'Internal?', 'Party1', 'Party2', 'Hold (s)', 'Cost']
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(letter))
+    elements = []
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], alignment=1, fontSize=14)
+    elements.append(Paragraph("Avaya Call Details Report", title_style))
+    elements.append(Spacer(1, 0.2*inch))
+
+    # Add filter summary
+    filter_text = f"Filters: {start_date or 'Any'} to {end_date or 'Any'} | Dir: {direction or 'All'} | Type: {is_internal or 'All'}"
+    elements.append(Paragraph(filter_text, styles['Normal']))
+    elements.append(Spacer(1, 0.2*inch))
+
+    table_data = [headers] + data
+    t = Table(table_data)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.grey),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0,0), (-1,0), 8),
+        ('BOTTOMPADDING', (0,0), (-1,0), 8),
+        ('BACKGROUND', (0,1), (-1,-1), colors.beige),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.black),
+        ('FONTSIZE', (0,1), (-1,-1), 7),
+    ]))
+    elements.append(t)
+    doc.build(elements)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name="call_details.pdf", mimetype='application/pdf')
 
 # -------------------------------------------------------------------
 # START APPLICATION

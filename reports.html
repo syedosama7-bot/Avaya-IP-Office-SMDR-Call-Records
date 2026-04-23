@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Avaya CDR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background: #f4f7fc; }
+        .report-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            transition: transform 0.2s;
+            height: 100%;
+        }
+        .report-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .report-icon { font-size: 2.5rem; color: #2563eb; }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <nav class="mb-4">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </nav>
+        <h1 class="display-6 fw-semibold mb-4"><i class="bi bi-file-earmark-bar-graph me-2"></i>Reporting Center</h1>
+        <p class="text-muted mb-4">Select a report template below. You can apply filters from the dashboard to narrow down data.</p>
+
+        <div class="row g-4">
+            <!-- Daily Summary -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-calendar3 report-icon me-3"></i>
+                        <h5 class="mb-0">Daily Summary</h5>
+                    </div>
+                    <p>Calls per day with talk time, ring time, hold time, and cost.</p>
+                    <a href="{{ url_for('generate_report', report_type='daily_summary', **request.args) }}" class="btn btn-primary w-100">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+            <!-- Top Callers -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-person-up report-icon me-3"></i>
+                        <h5 class="mb-0">Top Callers</h5>
+                    </div>
+                    <p>Ranking of numbers/extension by call volume and total cost.</p>
+                    <a href="{{ url_for('generate_report', report_type='top_callers', **request.args) }}" class="btn btn-primary w-100">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+            <!-- Top Called Numbers -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-telephone-outbound report-icon me-3"></i>
+                        <h5 class="mb-0">Top Called Numbers</h5>
+                    </div>
+                    <p>Most frequently dialed external/internal numbers.</p>
+                    <a href="{{ url_for('generate_report', report_type='top_called', **request.args) }}" class="btn btn-primary w-100">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+            <!-- Hourly Distribution -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-clock-history report-icon me-3"></i>
+                        <h5 class="mb-0">Hourly Distribution</h5>
+                    </div>
+                    <p>Call volume and talk time by hour of day.</p>
+                    <a href="{{ url_for('generate_report', report_type='hourly_distribution', **request.args) }}" class="btn btn-primary w-100">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+            <!-- Cost by Prefix -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-cash-stack report-icon me-3"></i>
+                        <h5 class="mb-0">Cost by Tariff Prefix</h5>
+                    </div>
+                    <p>Total cost breakdown per tariff prefix (based on called number).</p>
+                    <a href="{{ url_for('generate_report', report_type='cost_by_prefix', **request.args) }}" class="btn btn-primary w-100">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
