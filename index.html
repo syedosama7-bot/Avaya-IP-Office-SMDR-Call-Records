@@ -62,16 +62,28 @@
     </style>
 </head>
 <body>
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h1 class="display-6 fw-semibold" style="color: #0f172a;">
+        <i class="bi bi-telephone-inbound me-2" style="color: #2563eb;"></i>
+        Avaya Call Records
+    </h1>
+    <div>
+        <a href="{{ url_for('reports') }}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-file-earmark-bar-graph"></i> Reports
+        </a>
+        <span class="badge bg-light text-dark p-2 px-3 rounded-pill">
+            <i class="bi bi-clock-history me-1"></i> Live Updates
+        </span>
+    </div>
+</div>
     <div class="container-fluid py-4 px-3 px-md-5">
         <!-- Header -->
         <div class="d-flex align-items-center justify-content-between mb-4">
             <h1 class="display-6 fw-semibold" style="color: #0f172a;">
                 <i class="bi bi-telephone-inbound me-2" style="color: #2563eb;"></i>
-                Avaya Call Records
+                Dashboard
             </h1>
-            <span class="badge bg-light text-dark p-2 px-3 rounded-pill">
-                <i class="bi bi-clock-history me-1"></i> Live Updates
-            </span>
+
         </div>
 
         <!-- Summary Cards -->
@@ -153,12 +165,31 @@
             </form>
         </div>
 
-        <!-- Call Records Table -->
-        <div class="table-container">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-semibold mb-0"><i class="bi bi-list-ul me-2"></i>Call Details</h5>
-                <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+<!-- Call Records Table -->
+<div class="table-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-semibold mb-0">
+            <i class="bi bi-list-ul me-2"></i>Recent Call Details
+        </h5>
+        <div>
+            <a href="{{ url_for('export_calls_csv', **request.args) }}" class="btn btn-outline-success btn-sm me-2">
+                <i class="bi bi-filetype-csv"></i> CSV
+            </a>
+            <a href="{{ url_for('export_calls_pdf', **request.args) }}" class="btn btn-outline-danger btn-sm me-2">
+                <i class="bi bi-filetype-pdf"></i> PDF
+            </a>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset Filters
+            </a>
+        </div>
+    </div>
+
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <!-- Table headers and body go here -->
+            </table>
+        </div>
+</div>
                 </a>
             </div>
             <div class="table-responsive">
@@ -178,30 +209,30 @@
                             <th>Cost</th>
                         </tr>
                     </thead>
-                    <tbody>
+                                        <tbody>
                         {% for row in records %}
                         <tr>
-                            <td><span class="text-nowrap">{{ row[1] }}</span></td>
-                            <td>{{ row[2] }}</td>
-                            <td>{{ row[3] }}s</td>
-                            <td>{{ row[10] }}s</td>
-                            <td>{{ row[4] }}</td>
+                            <td><span class="text-nowrap">{{ row.call_start }}</span></td>
+                            <td>{{ row.duration_raw }}</td>
+                            <td>{{ row.ring_time }}s</td>
+                            <td>{{ row.hold_time }}s</td>
+                            <td>{{ row.caller }}</td>
                             <td>
-                                <span class="badge {% if row[5] == 'Inbound' %}badge-inbound{% else %}badge-outbound{% endif %} px-3 py-2">
-                                    {{ row[5] }}
+                                <span class="badge {% if row.direction == 'Inbound' %}badge-inbound{% else %}badge-outbound{% endif %} px-3 py-2">
+                                    {{ row.direction }}
                                 </span>
                             </td>
-                            <td>{{ row[6] }}</td>
+                            <td>{{ row.called_num }}</td>
                             <td>
-                                {% if row[7] == 1 %}
+                                {% if row.is_internal == 1 %}
                                     <span class="badge bg-secondary">Internal</span>
                                 {% else %}
                                     <span class="badge bg-info text-dark">External</span>
                                 {% endif %}
                             </td>
-                            <td><strong>{{ row[8] }}</strong></td>
-                            <td>{{ row[9] }}</td>
-                            <td>${{ "%.2f"|format(row[11]) }}</td>
+                            <td><strong>{{ row.party1_name }}</strong></td>
+                            <td>{{ row.party2_name }}</td>
+                            <td>${{ "%.2f"|format(row.cost) }}</td>
                         </tr>
                         {% else %}
                         <tr>
