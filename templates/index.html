@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Avaya CDR Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f7fc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --header-gradient: linear-gradient(135deg, #2563eb, #7c3aed);
+            --card-shadow: 0 8px 32px rgba(0,0,0,0.08);
+            --card-hover-shadow: 0 12px 40px rgba(0,0,0,0.12);
+        }
+        body.dark {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --card-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            --card-hover-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+        body {
+            background: var(--bg-color);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+        }
+        .header {
+            background: var(--header-gradient);
+            color: white;
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card:hover { transform: translateY(-4px); box-shadow: var(--card-hover-shadow); }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 6px;
+            height: 100%;
+            background: var(--accent);
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+        .stat-label {
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.85rem;
+        }
+        .filter-section, .table-container {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+        }
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border-color);
+            height: 380px;
+            overflow: hidden;
+        }
+        .chart-container canvas { display: block; }
+        .theme-toggle {
+            cursor: pointer;
+            font-size: 1.4rem;
+            color: white;
+            background: rgba(255,255,255,0.15);
+            border-radius: 50%;
+            width: 40px; height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s;
+        }
+        .theme-toggle:hover { background: rgba(255,255,255,0.25); }
+        .fade-in { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Dark mode table */
+        body.dark .table { color: #ffffff !important; background-color: #1e293b !important; }
+        body.dark .table th { background-color: #2563eb !important; color: #ffffff !important; font-weight: 600; }
+        body.dark .table td { color: #ffffff !important; background-color: #1e293b !important; }
+        body.dark .table-hover tbody tr:hover td { background-color: #2a3a4e !important; }
+        body.dark .btn-outline-success, body.dark .btn-outline-danger, body.dark .btn-outline-secondary {
+            border-color: #ffffff; color: #ffffff;
+        }
+        body.dark .btn-outline-success:hover, body.dark .btn-outline-danger:hover, body.dark .btn-outline-secondary:hover {
+            background-color: #ffffff; color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4 px-3 px-md-5">
+        <!-- Header -->
+        <div class="header d-flex align-items-center justify-content-between">
+            <h1 class="display-6 fw-semibold mb-0">
+                <i class="bi bi-telephone-inbound me-2"></i>Avaya Call Records
+            </h1>
+            <div class="d-flex align-items-center">
+                <a href="{{ url_for('reports.reports') }}" class="btn btn-light me-2">
+                    <i class="bi bi-file-earmark-bar-graph me-1"></i> Reports
+                </a>
+                {% if current_user.role == 'admin' %}
+                    <a href="{{ url_for('auth.list_users') }}" class="btn btn-light me-2">
+                        <i class="bi bi-people"></i> Users
+                    </a>
+                {% endif %}
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-light me-2">Logout</a>
+                <div class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
+                    <i class="bi bi-moon-stars"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row g-4 mb-4" id="summaryCards"></div>
+
+        <!-- Customizable Chart -->
+        <div class="chart-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-semibold mb-0"><i class="bi bi-bar-chart me-2"></i>Call Volume</h5>
+                <div class="d-flex">
+                    <select id="chartRange" class="form-select form-select-sm me-2" style="width:auto;">
+                        <option value="24h">Last 24 hours</option>
+                        <option value="7d" selected>Last 7 days</option>
+                        <option value="30d">Last 30 days</option>
+                        <option value="3m">Last 3 months</option>
+                        <option value="1y">Last 1 year</option>
+                    </select>
+                    <select id="chartInterval" class="form-select form-select-sm" style="width:auto;">
+                        <option value="hour">Hourly</option>
+                        <option value="day" selected>Daily</option>
+                        <option value="month">Monthly</option>
+                        <option value="year">Yearly</option>
+                    </select>
+                </div>
+            </div>
+            <canvas id="dailyChart" style="max-height: 250px; width: 100%;"></canvas>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <form id="filterForm" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Start Date</label>
+                    <input type="date" id="start_date" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">End Date</label>
+                    <input type="date" id="end_date" class="form-control">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Direction</label>
+                    <select id="direction" class="form-select">
+                        <option value="">All</option>
+                        <option value="Inbound">Inbound</option>
+                        <option value="Outbound">Outbound</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Call Type</label>
+                    <select id="is_internal" class="form-select">
+                        <option value="">All</option>
+                        <option value="internal">Internal</option>
+                        <option value="external">External</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Search</label>
+                    <input type="text" id="search" class="form-control" placeholder="Number, name...">
+                </div>
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Call Records Table -->
+        <div class="table-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-semibold mb-0"><i class="bi bi-list-ul me-2"></i>Recent Call Details</h5>
+                <div>
+                    <a href="{{ url_for('export.export_calls_csv', start_date=filters.start_date, end_date=filters.end_date, direction=filters.direction, is_internal=filters.is_internal, search=filters.search) }}" class="btn btn-outline-success btn-sm me-2">
+                        <i class="bi bi-filetype-csv"></i> CSV
+                    </a>
+                    <a href="{{ url_for('export.export_calls_pdf', start_date=filters.start_date, end_date=filters.end_date, direction=filters.direction, is_internal=filters.is_internal, search=filters.search) }}" class="btn btn-outline-danger btn-sm me-2">
+                        <i class="bi bi-filetype-pdf"></i> PDF
+                    </a>
+                    <button id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset Filters
+                    </button>
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Duration</th>
+                            <th>Ring</th>
+                            <th>Hold</th>
+                            <th>Caller</th>
+                            <th>Direction</th>
+                            <th>Called</th>
+                            <th>Type</th>
+                            <th>From (Party1)</th>
+                            <th>To (Party2)</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody id="callsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // ---------- Theme Toggle ----------
+        const themeToggle = document.getElementById('themeToggle');
+        const icon = themeToggle.querySelector('i');
+        function setTheme(mode) {
+            if (mode === 'dark') {
+                document.body.classList.add('dark');
+                icon.className = 'bi bi-sun';
+            } else {
+                document.body.classList.remove('dark');
+                icon.className = 'bi bi-moon-stars';
+            }
+            localStorage.setItem('theme', mode);
+        }
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        setTheme(savedTheme);
+        themeToggle.addEventListener('click', () => {
+            const current = document.body.classList.contains('dark') ? 'dark' : 'light';
+            setTheme(current === 'dark' ? 'light' : 'dark');
+        });
+
+        // ---------- Set today's date in filter inputs ----------
+        (function() {
+            const today = new Date().toISOString().split('T')[0];
+            if (!document.getElementById('start_date').value) {
+                document.getElementById('start_date').value = today;
+                document.getElementById('end_date').value = today;
+            }
+        })();
+
+        // ---------- Dashboard data refresh ----------
+        async function refreshDashboard() {
+            const start = document.getElementById('start_date').value;
+            const end = document.getElementById('end_date').value;
+            const dir = document.getElementById('direction').value;
+            const type = document.getElementById('is_internal').value;
+            const q = document.getElementById('search').value;
+            const params = new URLSearchParams({ start_date: start, end_date: end, direction: dir, is_internal: type, search: q });
+
+            const res = await fetch('/api/dashboard?' + params.toString());
+            const data = await res.json();
+            const s = data.summary;
+            document.getElementById('summaryCards').innerHTML = [
+                { label: 'Total Calls', value: s.total_calls, icon: 'bi-telephone', accent: '#2563eb' },
+                { label: 'Talk Time', value: s.total_duration, icon: 'bi-hourglass-split', accent: '#8b5cf6' },
+                { label: 'Avg. Duration', value: s.avg_duration, icon: 'bi-clock', accent: '#f59e0b' },
+                { label: 'Total Ring', value: s.total_ring, icon: 'bi-bell', accent: '#06b6d4' },
+                { label: 'Total Hold', value: s.total_hold, icon: 'bi-pause-circle', accent: '#e11d48' },
+                { label: 'Total Cost', value: '$' + s.total_cost.toFixed(2), icon: 'bi-currency-dollar', accent: '#ec4899' }
+            ].map(c => `<div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card fade-in" style="--accent: ${c.accent};">
+                    <div class="stat-label mb-2"><i class="bi ${c.icon} me-1"></i>${c.label}</div>
+                    <div class="stat-value">${c.value}</div>
+                </div>
+            </div>`).join('');
+
+            const calls = data.calls;
+            const tbody = document.getElementById('callsTableBody');
+            if (!calls || calls.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center py-5">No records found for today.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = calls.map(call => `
+                <tr>
+                    <td><span class="text-nowrap">${call.call_start || '—'}</span></td>
+                    <td>${call.duration_raw || ''}</td>
+                    <td>${call.ring_time || 0}s</td>
+                    <td>${call.hold_time || 0}s</td>
+                    <td>${call.caller || ''}</td>
+                    <td><span class="badge ${call.direction === 'Inbound' ? 'bg-success' : 'bg-primary'} px-3 py-2">${call.direction || ''}</span></td>
+                    <td>${call.called_num || ''}</td>
+                    <td><span class="badge ${call.is_internal ? 'bg-secondary' : 'bg-info text-dark'}">${call.is_internal ? 'Internal' : 'External'}</span></td>
+                    <td><strong>${call.party1_name || ''}</strong></td>
+                    <td>${call.party2_name || ''}</td>
+                    <td>$${call.cost.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+
+        // ---------- Customizable Chart ----------
+        let dailyChart;
+        async function loadChart() {
+            const range = document.getElementById('chartRange').value;
+            const interval = document.getElementById('chartInterval').value;
+            const params = new URLSearchParams({ range, interval });
+            const res = await fetch('/api/call_volume?' + params.toString());
+            const data = await res.json();
+
+            const labels = data.map(d => d.period);
+            const counts = data.map(d => d.count);
+            const ctx = document.getElementById('dailyChart').getContext('2d');
+            if (dailyChart) dailyChart.destroy();
+
+            let xTitle = 'Period';
+            if (interval === 'hour') xTitle = 'Hour';
+            else if (interval === 'day') xTitle = 'Date';
+            else if (interval === 'month') xTitle = 'Month';
+            else if (interval === 'year') xTitle = 'Year';
+
+            dailyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Calls',
+                        data: counts,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 8,
+                        barPercentage: 0.6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Number of Calls' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        x: { title: { display: true, text: xTitle }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('chartRange').addEventListener('change', function() {
+            const range = this.value;
+            const intervalSelect = document.getElementById('chartInterval');
+            if (range === '24h') intervalSelect.value = 'hour';
+            else if (range === '7d' || range === '30d') intervalSelect.value = 'day';
+            else if (range === '3m') intervalSelect.value = 'month';
+            else if (range === '1y') intervalSelect.value = 'month';
+            loadChart();
+        });
+        document.getElementById('chartInterval').addEventListener('change', loadChart);
+
+        document.getElementById('filterForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            refreshDashboard();
+        });
+        document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+            document.getElementById('start_date').value = '';
+            document.getElementById('end_date').value = '';
+            document.getElementById('direction').value = '';
+            document.getElementById('is_internal').value = '';
+            document.getElementById('search').value = '';
+            // After reset, reapply today's date
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('start_date').value = today;
+            document.getElementById('end_date').value = today;
+            refreshDashboard();
+        });
+
+        // Initial load
+        refreshDashboard();
+        loadChart();
+
+        // Auto-refresh
+        setInterval(refreshDashboard, 10000);
+    </script>
+</body>
+</html>

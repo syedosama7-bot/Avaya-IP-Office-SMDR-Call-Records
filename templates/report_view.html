@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }} - Avaya CDR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <nav class="mb-4">
+            <a href="{{ url_for('reports.reports') }}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left"></i> Reports
+            </a>
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-house"></i> Dashboard
+            </a>
+        </nav>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ report_title }}</h4>
+                <div>
+                    <a href="{{ url_for('export.export_csv', report_type=report_type, **filters) }}" class="btn btn-light btn-sm me-2">
+                        <i class="bi bi-filetype-csv"></i> Export CSV
+                    </a>
+                    <a href="{{ url_for('export.export_pdf', report_type=report_type, **filters) }}" class="btn btn-light btn-sm">
+                        <i class="bi bi-filetype-pdf"></i> Export PDF
+                    </a>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filter summary -->
+                <div class="mb-3 small text-muted">
+                    Filters applied:
+                    {% if filters.start_date %}From {{ filters.start_date }} {% else %}Any start {% endif %}
+                    {% if filters.end_date %}To {{ filters.end_date }} {% else %}Any end {% endif %}
+                    | Direction: {{ filters.direction or 'All' }}
+                    | Type: {{ filters.is_internal or 'All' }}
+                    | Search: {{ filters.search or 'None' }}
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                {% for h in headers %}
+                                <th>{{ h }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                            <tr>
+                                {% for cell in row %}
+                                <td>{{ cell }}</td>
+                                {% endfor %}
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="{{ headers|length }}" class="text-center py-4">No data for selected filters.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
