@@ -1,1 +1,55 @@
+import csv
+import re
+from io import StringIO
+import sqlite3
 
+def parse_and_save(raw_data, db_path):
+    match = re.search(r'(\d{4}/\d{2}/\d{2}\s\d{2}:\d{2}:\d{2},.*)', raw_data)
+    if not match:
+        return
+    try:
+        line = match.group(1).strip()
+        row = next(csv.reader(StringIO(line)))
+        while len(row) < 30:
+            row.append('')
+        call_start   = row[0]
+        duration     = row[1]
+        ring_time    = int(row[2]) if row[2].strip().isdigit() else 0
+        caller       = row[3]
+        direction    = "Inbound" if row[4] == "I" else "Outbound"
+        called_num   = row[5]
+        dialled_num  = row[6]
+        account_code = row[7]
+        is_int_raw   = int(row[8]) if row[8].strip().isdigit() else 0
+        call_id      = int(row[9]) if row[9].strip().isdigit() else None
+        continuation = int(row[10]) if row[10].strip().isdigit() else 0
+        party1_dev   = row[11]
+        party1_name  = row[12]
+        party2_dev   = row[13]
+        party2_name  = row[14]
+        hold_time    = int(row[15]) if row[15].strip().isdigit() else 0
+        park_time    = int(row[16]) if row[16].strip().isdigit() else 0
+        auth_valid   = int(row[17]) if row[17].strip().isdigit() else 0
+        auth_code    = row[18] if row[18] != 'n/a' else None
+
+        h, m, s = map(int, duration.split(':'))
+        sec = (h * 3600) + (m * 60) + s
+
+        with sqlite3.connect(db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO calls
+                (call_start, duration_raw, duration_seconds, ring_time,
+                 caller, direction, called_num, dialled_num, account_code,
+                 is_internal, call_id, continuation, party1_device, party1_name,
+                 party2_device, party2_name, hold_time, park_time,
+                 auth_valid, auth_code, cost)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (call_start, duration, sec, ring_time,
+                  caller, direction, called_num, dialled_num, account_code,
+                  is_int_raw, call_id, continuation, party1_dev, party1_name,
+                  party2_dev, party2_name, hold_time, park_time,
+                  auth_valid, auth_code, 0.0))
+        print(f"[SAVED] {party1_name} | {caller} -> {called_num}")
+    except Exception as e:
+        print(f"[!] Parse Error: {e}")
