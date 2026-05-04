@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Avaya CDR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background: #f4f7fc; }
+        .report-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            transition: transform 0.2s;
+            height: 100%;
+        }
+        .report-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.08); }
+        .report-icon { font-size: 2.5rem; color: #2563eb; }
+        .filter-input { margin-top: 0.5rem; }
+        .btn-view { width: 100%; }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <nav class="mb-4">
+            <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </nav>
+        <h1 class="display-6 fw-semibold mb-4"><i class="bi bi-file-earmark-bar-graph me-2"></i>Reporting Center</h1>
+        <p class="text-muted mb-4">Select a report template and apply filters directly.</p>
+
+        <div class="row g-4">
+            <!-- Daily Summary -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-calendar3 report-icon me-3"></i>
+                        <h5 class="mb-0">Daily Summary</h5>
+                    </div>
+                    <p>Calls per day. Select a single date.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='daily_summary') }}">
+                        <input type="date" name="date" class="form-control filter-input" value="{{ request.args.get('date', '') }}">
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Top Callers (no extra filter) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-person-up report-icon me-3"></i>
+                        <h5 class="mb-0">Top Callers</h5>
+                    </div>
+                    <p>Ranking of numbers/extension by call volume.</p>
+                    <a href="{{ url_for('reports.generate_report', report_type='top_callers') }}" class="btn btn-primary btn-view">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+
+            <!-- Top Called Numbers -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-telephone-outbound report-icon me-3"></i>
+                        <h5 class="mb-0">Top Called Numbers</h5>
+                    </div>
+                    <p>Most frequently dialed numbers.</p>
+                    <a href="{{ url_for('reports.generate_report', report_type='top_called') }}" class="btn btn-primary btn-view">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+
+            <!-- Hourly Distribution (single date) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-clock-history report-icon me-3"></i>
+                        <h5 class="mb-0">Hourly Distribution</h5>
+                    </div>
+                    <p>Busiest hour of a single day.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='hourly_distribution') }}">
+                        <input type="date" name="date" class="form-control filter-input" value="{{ request.args.get('date', '') }}">
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Cost by Tariff Prefix (month/year) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-cash-stack report-icon me-3"></i>
+                        <h5 class="mb-0">Cost by Tariff Prefix</h5>
+                    </div>
+                    <p>Total cost per prefix for a month.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='cost_by_prefix') }}" class="row">
+                        <div class="col-6">
+                            <input type="number" name="month" class="form-control" placeholder="MM" min="1" max="12" value="{{ request.args.get('month', '') }}">
+                        </div>
+                        <div class="col-6">
+                            <input type="number" name="year" class="form-control" placeholder="YYYY" value="{{ request.args.get('year', '') }}">
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Extension Usage Summary (date range + extension) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-diagram-3 report-icon me-3"></i>
+                        <h5 class="mb-0">Extension Usage</h5>
+                    </div>
+                    <p>Filter by date range and extension(s).</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='extension_usage') }}">
+                        <input type="date" name="start_date" class="form-control filter-input" placeholder="Start" value="{{ request.args.get('start_date', '') }}">
+                        <input type="date" name="end_date" class="form-control filter-input" placeholder="End" value="{{ request.args.get('end_date', '') }}">
+                        <input type="text" name="extension" class="form-control filter-input" placeholder="Extensions (comma separated)" value="{{ request.args.get('extension', '') }}">
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Ring Time (date range) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-bell report-icon me-3"></i>
+                        <h5 class="mb-0">Answer Time / Ring Time</h5>
+                    </div>
+                    <p>Longest ring times (date range optional).</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='ring_time') }}">
+                        <input type="date" name="start_date" class="form-control filter-input" value="{{ request.args.get('start_date', '') }}">
+                        <input type="date" name="end_date" class="form-control filter-input" value="{{ request.args.get('end_date', '') }}">
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Abandoned Calls (date range) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-x-circle report-icon me-3"></i>
+                        <h5 class="mb-0">Abandoned / Short Calls</h5>
+                    </div>
+                    <p>Unanswered calls, filter by dates.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='abandoned') }}">
+                        <input type="date" name="start_date" class="form-control filter-input" value="{{ request.args.get('start_date', '') }}">
+                        <input type="date" name="end_date" class="form-control filter-input" value="{{ request.args.get('end_date', '') }}">
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Heatmap (no extra filter) -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-grid-3x3-gap report-icon me-3"></i>
+                        <h5 class="mb-0">Call Heatmap</h5>
+                    </div>
+                    <p>Day of week vs hour.</p>
+                    <a href="{{ url_for('reports.generate_report', report_type='heatmap') }}" class="btn btn-primary btn-view">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+
+            <!-- Trunk Usage -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-hdd-rack report-icon me-3"></i>
+                        <h5 class="mb-0">Trunk Usage</h5>
+                    </div>
+                    <p>Calls per trunk line.</p>
+                    <a href="{{ url_for('reports.generate_report', report_type='trunk_usage') }}" class="btn btn-primary btn-view">
+                        <i class="bi bi-eye"></i> View Report
+                    </a>
+                </div>
+            </div>
+
+            <!-- Period Comparison -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-arrow-left-right report-icon me-3"></i>
+                        <h5 class="mb-0">Period Comparison</h5>
+                    </div>
+                    <p>Compare two custom date ranges.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='period_comparison') }}">
+                        <label class="form-label small">Period 1</label>
+                        <div class="row">
+                            <div class="col-6"><input type="date" name="start_date" class="form-control filter-input" value="{{ request.args.get('start_date', '') }}"></div>
+                            <div class="col-6"><input type="date" name="end_date" class="form-control filter-input" value="{{ request.args.get('end_date', '') }}"></div>
+                        </div>
+                        <label class="form-label small mt-2">Period 2</label>
+                        <div class="row">
+                            <div class="col-6"><input type="date" name="start_date2" class="form-control filter-input" value="{{ request.args.get('start_date2', '') }}"></div>
+                            <div class="col-6"><input type="date" name="end_date2" class="form-control filter-input" value="{{ request.args.get('end_date2', '') }}"></div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> Compare</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

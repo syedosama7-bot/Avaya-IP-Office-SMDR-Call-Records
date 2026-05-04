@@ -1,0 +1,16 @@
+<div class="container mt-4">
+    <h2>Usage Summary by Extension</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr><th>Extension/Name</th><th>Total Calls</th><th>Total Duration (Min)</th><th>Total Cost</th></tr>
+        </thead>
+        {% for r in report %}
+        <tr>
+            <td>{{ r[0] }}</td>
+            <td>{{ r[1] }}</td>
+            <td>{{ (r[2]/60)|round(2) }}</td>
+            <td><strong>PKR {{ r[3] }}</strong></td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
