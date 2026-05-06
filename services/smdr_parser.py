@@ -1,11 +1,15 @@
 import csv
 import re
-from io import StringIO
+import logging
 import sqlite3
+from io import StringIO
+
+logger = logging.getLogger(__name__)
 
 def parse_and_save(raw_data, db_path):
     match = re.search(r'(\d{4}/\d{2}/\d{2}\s\d{2}:\d{2}:\d{2},.*)', raw_data)
     if not match:
+        logger.debug(f"No SMDR record found in data: {raw_data[:100]}")
         return
     try:
         line = match.group(1).strip()
@@ -35,21 +39,24 @@ def parse_and_save(raw_data, db_path):
         h, m, s = map(int, duration.split(':'))
         sec = (h * 3600) + (m * 60) + s
 
-        with sqlite3.connect(db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO calls
-                (call_start, duration_raw, duration_seconds, ring_time,
-                 caller, direction, called_num, dialled_num, account_code,
-                 is_internal, call_id, continuation, party1_device, party1_name,
-                 party2_device, party2_name, hold_time, park_time,
-                 auth_valid, auth_code, cost)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (call_start, duration, sec, ring_time,
-                  caller, direction, called_num, dialled_num, account_code,
-                  is_int_raw, call_id, continuation, party1_dev, party1_name,
-                  party2_dev, party2_name, hold_time, park_time,
-                  auth_valid, auth_code, 0.0))
-        print(f"[SAVED] {party1_name} | {caller} -> {called_num}")
+        # Direct DB insert – no Flask context needed
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO calls
+            (call_start, duration_raw, duration_seconds, ring_time,
+             caller, direction, called_num, dialled_num, account_code,
+             is_internal, call_id, continuation, party1_device, party1_name,
+             party2_device, party2_name, hold_time, park_time,
+             auth_valid, auth_code, cost)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (call_start, duration, sec, ring_time,
+              caller, direction, called_num, dialled_num, account_code,
+              is_int_raw, call_id, continuation, party1_dev, party1_name,
+              party2_dev, party2_name, hold_time, park_time,
+              auth_valid, auth_code, 0.0))
+        conn.commit()
+        conn.close()
+        logger.info(f"SMDR saved: {party1_name} | {caller} -> {called_num}")
     except Exception as e:
-        print(f"[!] Parse Error: {e}")
+        logger.error(f"SMDR parse error: {e}, raw data: {raw_data[:200]}")

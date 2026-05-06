@@ -1,9 +1,19 @@
 import socket
 import threading
 import re
+import logging
+from datetime import datetime
 from .smdr_parser import parse_and_save
 
-DB_PATH = None  # will be set from app factory
+status = {
+    'connected': False,
+    'ip': '',
+    'last_seen': None
+}
+
+DB_PATH = None
+
+logger = logging.getLogger(__name__)
 
 def start_listener(ip, port, db_path):
     global DB_PATH
@@ -13,10 +23,14 @@ def start_listener(ip, port, db_path):
     try:
         sock.bind((ip, port))
         sock.listen(5)
-        print(f"[LISTENING] TCP port {port}")
+        logger.info(f"SMDR listener started on {ip}:{port}")
         while True:
             client, addr = sock.accept()
-            print(f"[CONNECTED] {addr}")
+            logger.info(f"SMDR connection from {addr}")
+            status['connected'] = True
+            status['ip'] = addr[0]
+            status['last_seen'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
             client.settimeout(3)
             data = b""
             try:
@@ -28,10 +42,15 @@ def start_listener(ip, port, db_path):
             except socket.timeout:
                 pass
             client.close()
+
             if data:
                 text = data.decode('utf-8', errors='ignore')
                 for match in re.finditer(r'(\d{4}/\d{2}/\d{2}\s\d{2}:\d{2}:\d{2},.*)', text):
                     parse_and_save(match.group(0), DB_PATH)
+                status['last_seen'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            else:
+                logger.warning("No SMDR data received.")
+            status['connected'] = False
     except Exception as e:
-        print(f"[LISTENER ERROR] {e}")
+        logger.error(f"SMDR listener error: {e}")
         threading.Event().wait(5)
