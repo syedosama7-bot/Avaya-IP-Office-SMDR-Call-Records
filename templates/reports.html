@@ -48,7 +48,7 @@
                 </div>
             </div>
 
-            <!-- Top Callers (no extra filter) -->
+            <!-- Top Callers -->
             <div class="col-md-6 col-lg-4">
                 <div class="report-card">
                     <div class="d-flex align-items-center mb-3">
@@ -76,7 +76,7 @@
                 </div>
             </div>
 
-            <!-- Hourly Distribution (single date) -->
+            <!-- Hourly Distribution -->
             <div class="col-md-6 col-lg-4">
                 <div class="report-card">
                     <div class="d-flex align-items-center mb-3">
@@ -91,7 +91,7 @@
                 </div>
             </div>
 
-            <!-- Cost by Tariff Prefix (month/year) -->
+            <!-- Cost by Tariff Prefix -->
             <div class="col-md-6 col-lg-4">
                 <div class="report-card">
                     <div class="d-flex align-items-center mb-3">
@@ -111,7 +111,7 @@
                 </div>
             </div>
 
-            <!-- Extension Usage Summary (date range + extension) -->
+            <!-- Extension Usage -->
             <div class="col-md-6 col-lg-4">
                 <div class="report-card">
                     <div class="d-flex align-items-center mb-3">
@@ -128,7 +128,7 @@
                 </div>
             </div>
 
-            <!-- Ring Time (date range) -->
+            <!-- Ring Time -->
             <div class="col-md-6 col-lg-4">
                 <div class="report-card">
                     <div class="d-flex align-items-center mb-3">
@@ -144,7 +144,7 @@
                 </div>
             </div>
 
-            <!-- Abandoned Calls (date range) -->
+            <!-- Abandoned Calls -->
             <div class="col-md-6 col-lg-4">
                 <div class="report-card">
                     <div class="d-flex align-items-center mb-3">
@@ -160,7 +160,7 @@
                 </div>
             </div>
 
-            <!-- Heatmap (no extra filter) -->
+            <!-- Heatmap -->
             <div class="col-md-6 col-lg-4">
                 <div class="report-card">
                     <div class="d-flex align-items-center mb-3">
@@ -208,6 +208,173 @@
                             <div class="col-6"><input type="date" name="end_date2" class="form-control filter-input" value="{{ request.args.get('end_date2', '') }}"></div>
                         </div>
                         <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> Compare</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Detail Call Records -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-card-list report-icon me-3"></i>
+                        <h5 class="mb-0">Detail Call Records</h5>
+                    </div>
+                    <p>Full SMDR fields for a custom date range.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='detail_call_report') }}">
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="date" name="start_date" class="form-control filter-input" placeholder="Start">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" name="end_date" class="form-control filter-input" placeholder="End">
+                            </div>
+                        </div>
+                        <input type="text" name="search" class="form-control filter-input mt-2" placeholder="Search name or number">
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- ========== NEW REPORTS ========== -->
+            <!-- Call Journey -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-signpost-2 report-icon me-3"></i>
+                        <h5 class="mb-0">Call Journey</h5>
+                    </div>
+                    <p>Trace all segments of a single call by its Call ID.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='call_journey') }}">
+                        <input type="number" name="call_id" class="form-control filter-input" placeholder="Call ID" required>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Duration Distribution -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-bar-chart-steps report-icon me-3"></i>
+                        <h5 class="mb-0">Duration Distribution</h5>
+                    </div>
+                    <p>Call counts grouped by duration buckets.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='duration_distribution') }}">
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="date" name="start_date" class="form-control filter-input" placeholder="Start">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" name="end_date" class="form-control filter-input" placeholder="End">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Abandoned Trend -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-graph-down report-icon me-3"></i>
+                        <h5 class="mb-0">Abandoned Trend</h5>
+                    </div>
+                    <p>Daily abandoned calls over time.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='abandoned_trend') }}">
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="date" name="start_date" class="form-control filter-input" placeholder="Start">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" name="end_date" class="form-control filter-input" placeholder="End">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Caller Profile -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-person-badge report-icon me-3"></i>
+                        <h5 class="mb-0">Caller Profile</h5>
+                    </div>
+                    <p>Activity summary for a specific external number.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='caller_profile') }}">
+                        <input type="text" name="external_number" class="form-control filter-input" placeholder="External Number" required>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <input type="date" name="start_date" class="form-control filter-input" placeholder="Start">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" name="end_date" class="form-control filter-input" placeholder="End">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Extension Scorecard -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-award report-icon me-3"></i>
+                        <h5 class="mb-0">Extension Scorecard</h5>
+                    </div>
+                    <p>Activity score per extension (calls + talk time).</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='extension_scorecard') }}">
+                        <input type="date" name="start_date" class="form-control filter-input" placeholder="Start">
+                        <input type="date" name="end_date" class="form-control filter-input" placeholder="End">
+                        <input type="text" name="extension" class="form-control filter-input mt-2" placeholder="Extensions (comma separated)">
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Trunk Peak Utilisation -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-speedometer2 report-icon me-3"></i>
+                        <h5 class="mb-0">Trunk Peak Utilisation</h5>
+                    </div>
+                    <p>Peak concurrent calls per trunk and hour.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='trunk_peak_utilisation') }}">
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="date" name="start_date" class="form-control filter-input" placeholder="Start">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" name="end_date" class="form-control filter-input" placeholder="End">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Call Outcome Summary -->
+            <div class="col-md-6 col-lg-4">
+                <div class="report-card">
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-pie-chart report-icon me-3"></i>
+                        <h5 class="mb-0">Call Outcome Summary</h5>
+                    </div>
+                    <p>Answered, abandoned, voicemail breakdown.</p>
+                    <form method="get" action="{{ url_for('reports.generate_report', report_type='outcome_summary') }}">
+                        <div class="row">
+                            <div class="col-6">
+                                <input type="date" name="start_date" class="form-control filter-input" placeholder="Start">
+                            </div>
+                            <div class="col-6">
+                                <input type="date" name="end_date" class="form-control filter-input" placeholder="End">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-2 btn-view"><i class="bi bi-eye"></i> View</button>
                     </form>
                 </div>
             </div>

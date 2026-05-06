@@ -15,6 +15,10 @@
                 <input type="password" name="password" id="password" class="form-control">
             </div>
             <div class="mb-3">
+                <label for="password_confirm" class="form-label">Confirm New Password</label>
+                <input type="password" name="password_confirm" id="password_confirm" class="form-control">
+            </div>
+            <div class="mb-3">
                 <label for="role" class="form-label">Role</label>
                 <select name="role" id="role" class="form-select">
                     <option value="viewer" {% if user[2] == 'viewer' %}selected{% endif %}>Viewer</option>

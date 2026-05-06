@@ -124,21 +124,31 @@
 </head>
 <body>
     <div class="container-fluid py-4 px-3 px-md-5">
+        <!-- Connection Status Bar -->
+<div id="connectionBar" class="alert alert-dismissible fade show mb-3 py-2 px-3 d-flex align-items-center" style="display: none; border-radius: 12px;">
+    <i class="bi me-2" id="connIcon"></i>
+    <span id="connText"></span>
+    <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
         <!-- Header -->
         <div class="header d-flex align-items-center justify-content-between">
             <h1 class="display-6 fw-semibold mb-0">
                 <i class="bi bi-telephone-inbound me-2"></i>Avaya Call Records
             </h1>
             <div class="d-flex align-items-center">
-                <a href="{{ url_for('reports.reports') }}" class="btn btn-light me-2">
-                    <i class="bi bi-file-earmark-bar-graph me-1"></i> Reports
-                </a>
+                <a href="{{ url_for('reports.reports') }}" class="btn btn-light me-2"><i class="bi bi-file-earmark-bar-graph me-1"></i> Reports</a>
+                
                 {% if current_user.role == 'admin' %}
-                    <a href="{{ url_for('auth.list_users') }}" class="btn btn-light me-2">
-                        <i class="bi bi-people"></i> Users
-                    </a>
+                    <a href="{{ url_for('auth.list_users') }}" class="btn btn-light me-2"><i class="bi bi-people"></i> Users</a>
+                    <a href="{{ url_for('auth.settings') }}" class="btn btn-light me-2"><i class="bi bi-gear"></i> Settings</a>
+                    <a href="{{ url_for('auth.view_audit') }}" class="btn btn-light me-2"><i class="bi bi-journal-text"></i> Audit</a>
+                    <a href="{{ url_for('auth.maintenance') }}" class="btn btn-light me-2"><i class="bi bi-tools"></i> Maintenance</a>
                 {% endif %}
+                <a href="{{ url_for('auth.change_password') }}" class="btn btn-light me-2"><i class="bi bi-key"></i> Change Password</a>
                 <a href="{{ url_for('auth.logout') }}" class="btn btn-light me-2">Logout</a>
+                <span class="text-white me-2 small">
+                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                </span>
                 <div class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
                     <i class="bi bi-moon-stars"></i>
                 </div>
@@ -148,27 +158,47 @@
         <!-- Summary Cards -->
         <div class="row g-4 mb-4" id="summaryCards"></div>
 
-        <!-- Customizable Chart -->
-        <div class="chart-container">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-semibold mb-0"><i class="bi bi-bar-chart me-2"></i>Call Volume</h5>
-                <div class="d-flex">
-                    <select id="chartRange" class="form-select form-select-sm me-2" style="width:auto;">
-                        <option value="24h">Last 24 hours</option>
-                        <option value="7d" selected>Last 7 days</option>
-                        <option value="30d">Last 30 days</option>
-                        <option value="3m">Last 3 months</option>
-                        <option value="1y">Last 1 year</option>
-                    </select>
-                    <select id="chartInterval" class="form-select form-select-sm" style="width:auto;">
-                        <option value="hour">Hourly</option>
-                        <option value="day" selected>Daily</option>
-                        <option value="month">Monthly</option>
-                        <option value="year">Yearly</option>
-                    </select>
+        <!-- Dual Chart Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-semibold mb-0"><i class="bi bi-bar-chart me-2"></i>Call Volume</h5>
+                        <div class="d-flex">
+                            <select id="chartRange" class="form-select form-select-sm me-2" style="width:auto;">
+                                <option value="24h">Last 24h</option>
+                                <option value="7d" selected>Last 7d</option>
+                                <option value="30d">Last 30d</option>
+                                <option value="3m">Last 3m</option>
+                                <option value="1y">Last 1y</option>
+                            </select>
+                            <select id="chartInterval" class="form-select form-select-sm" style="width:auto;">
+                                <option value="hour">Hourly</option>
+                                <option value="day" selected>Daily</option>
+                                <option value="month">Monthly</option>
+                                <option value="year">Yearly</option>
+                            </select>
+                        </div>
+                    </div>
+                    <canvas id="dailyChart" style="max-height: 250px; width: 100%;"></canvas>
                 </div>
             </div>
-            <canvas id="dailyChart" style="max-height: 250px; width: 100%;"></canvas>
+
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-semibold mb-0"><i class="bi bi-pie-chart me-2"></i>Breakdown</h5>
+                        <select id="breakdownType" class="form-select form-select-sm" style="width:auto;">
+                            <option value="direction">Direction</option>
+                            <option value="call_type">Call Type</option>
+                            <option value="top_callers">Top Callers</option>
+                            <option value="top_called">Top Called</option>
+                            <option value="trunk">Trunk Usage</option>
+                        </select>
+                    </div>
+                    <canvas id="breakdownChart" style="max-height: 250px; width: 100%;"></canvas>
+                </div>
+            </div>
         </div>
 
         <!-- Filter Section -->
@@ -240,6 +270,7 @@
                             <th>Type</th>
                             <th>From (Party1)</th>
                             <th>To (Party2)</th>
+                            <th>Call ID</th>
                             <th>Cost</th>
                         </tr>
                     </thead>
@@ -249,7 +280,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // ---------- Theme Toggle ----------
         const themeToggle = document.getElementById('themeToggle');
@@ -269,9 +300,43 @@
         themeToggle.addEventListener('click', () => {
             const current = document.body.classList.contains('dark') ? 'dark' : 'light';
             setTheme(current === 'dark' ? 'light' : 'dark');
+            loadBreakdownChart();
         });
 
-        // ---------- Set today's date in filter inputs ----------
+        // ---------- Connection Status ----------
+        function updateConnectionStatus() {
+            fetch('/api/connection_status')
+                .then(res => res.json())
+                .then(data => {
+                    const bar = document.getElementById('connectionBar');
+                    const icon = document.getElementById('connIcon');
+                    const text = document.getElementById('connText');
+                    if (data.connected) {
+                        bar.style.display = 'flex';
+                        bar.className = 'alert alert-success mb-3 py-2 px-3 d-flex align-items-center';
+                        icon.className = 'bi bi-check-circle-fill me-2';
+                        text.innerHTML = `IP Office connected (${data.ip}) – last seen ${data.last_seen}`;
+                    } else {
+                        bar.style.display = 'flex';
+                        bar.className = 'alert alert-danger mb-3 py-2 px-3 d-flex align-items-center';
+                        icon.className = 'bi bi-exclamation-triangle-fill me-2';
+                        text.innerHTML = data.last_seen ?
+                            `No active connection. Last seen ${data.last_seen} from ${data.ip}` :
+                            'No connection to IP Office yet.';
+                    }
+                })
+                .catch(() => {
+                    const bar = document.getElementById('connectionBar');
+                    bar.style.display = 'flex';
+                    bar.className = 'alert alert-warning mb-3 py-2 px-3 d-flex align-items-center';
+                    document.getElementById('connIcon').className = 'bi bi-question-circle-fill me-2';
+                    document.getElementById('connText').innerText = 'Unable to check connection status.';
+                });
+        }
+        updateConnectionStatus();
+        setInterval(updateConnectionStatus, 5000);
+
+        // ---------- Set today's date ----------
         (function() {
             const today = new Date().toISOString().split('T')[0];
             if (!document.getElementById('start_date').value) {
@@ -280,14 +345,26 @@
             }
         })();
 
-        // ---------- Dashboard data refresh ----------
-        async function refreshDashboard() {
+        // ---------- Pagination state ----------
+        let currentPage = 1;
+        const PER_PAGE = 50;
+
+        // ---------- Dashboard data refresh (with pagination) ----------
+        async function refreshDashboard(page = currentPage) {
             const start = document.getElementById('start_date').value;
             const end = document.getElementById('end_date').value;
             const dir = document.getElementById('direction').value;
             const type = document.getElementById('is_internal').value;
             const q = document.getElementById('search').value;
-            const params = new URLSearchParams({ start_date: start, end_date: end, direction: dir, is_internal: type, search: q });
+            const params = new URLSearchParams({
+                start_date: start,
+                end_date: end,
+                direction: dir,
+                is_internal: type,
+                search: q,
+                page: page,
+                per_page: PER_PAGE
+            });
 
             const res = await fetch('/api/dashboard?' + params.toString());
             const data = await res.json();
@@ -309,11 +386,13 @@
             const calls = data.calls;
             const tbody = document.getElementById('callsTableBody');
             if (!calls || calls.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="11" class="text-center py-5">No records found for today.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5">No records found for the selected period.</td></tr>';
                 return;
             }
-            tbody.innerHTML = calls.map(call => `
-                <tr>
+
+            // Build call rows – now includes Call ID before Cost
+            let rowsHtml = calls.map(call => `
+                <tr data-call-id="${call.call_id || ''}" style="cursor:pointer">
                     <td><span class="text-nowrap">${call.call_start || '—'}</span></td>
                     <td>${call.duration_raw || ''}</td>
                     <td>${call.ring_time || 0}s</td>
@@ -324,12 +403,89 @@
                     <td><span class="badge ${call.is_internal ? 'bg-secondary' : 'bg-info text-dark'}">${call.is_internal ? 'Internal' : 'External'}</span></td>
                     <td><strong>${call.party1_name || ''}</strong></td>
                     <td>${call.party2_name || ''}</td>
+                    <td>${call.call_id || '—'}</td>
                     <td>$${call.cost.toFixed(2)}</td>
                 </tr>
             `).join('');
+
+            // Build pagination row (colspan updated to 12)
+            const pag = data.pagination;
+            let paginationHtml = '';
+            if (pag.total_pages > 1) {
+                paginationHtml = `<tr>
+                    <td colspan="12" class="text-center">
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" id="prevBtn" ${pag.page <= 1 ? 'disabled' : ''}>
+                                <i class="bi bi-chevron-left"></i> Previous
+                            </button>
+                            <span class="btn btn-outline-secondary disabled">
+                                Page ${pag.page} of ${pag.total_pages} (${pag.total} calls)
+                            </span>
+                            <button class="btn btn-outline-secondary" id="nextBtn" ${pag.page >= pag.total_pages ? 'disabled' : ''}>
+                                Next <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>`;
+            }
+            tbody.innerHTML = rowsHtml + paginationHtml;
+            currentPage = pag.page;
+
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            if (prevBtn) {
+                prevBtn.addEventListener('click', () => {
+                    if (currentPage > 1) refreshDashboard(currentPage - 1);
+                });
+            }
+            if (nextBtn) {
+                nextBtn.addEventListener('click', () => {
+                    if (currentPage < pag.total_pages) refreshDashboard(currentPage + 1);
+                });
+            }
+            updateExportLinks();
         }
 
-        // ---------- Customizable Chart ----------
+        // ---------- Double‑click to open Call Journey (popup) ----------
+        document.getElementById('callsTableBody').addEventListener('dblclick', (e) => {
+            const row = e.target.closest('tr[data-call-id]');
+            if (row) {
+                const callId = row.getAttribute('data-call-id');
+                if (callId) {
+                    window.open(
+                        `/report/call_journey?call_id=${callId}&popup=1`,
+                        'callJourneyPopup',
+                        'width=1000,height=700,scrollbars=yes,resizable=yes'
+                    );
+                }
+            }
+        });
+
+        function updateExportLinks() {
+            const start = document.getElementById('start_date').value;
+            const end = document.getElementById('end_date').value;
+            const dir = document.getElementById('direction').value;
+            const type = document.getElementById('is_internal').value;
+            const q = document.getElementById('search').value;
+
+            const params = new URLSearchParams({
+                start_date: start,
+                end_date: end,
+                direction: dir,
+                is_internal: type,
+                search: q
+            });
+
+            const csvBase = "/export/calls/csv";
+            const pdfBase = "/export/calls/pdf";
+            const csvLink = document.querySelector('.btn-outline-success[href*="/export/calls/csv"]');
+            const pdfLink = document.querySelector('.btn-outline-danger[href*="/export/calls/pdf"]');
+
+            if (csvLink) csvLink.href = csvBase + '?' + params.toString();
+            if (pdfLink) pdfLink.href = pdfBase + '?' + params.toString();
+        }
+
+        // ---------- Call Volume Chart ----------
         let dailyChart;
         async function loadChart() {
             const range = document.getElementById('chartRange').value;
@@ -384,9 +540,84 @@
         });
         document.getElementById('chartInterval').addEventListener('change', loadChart);
 
+        // ---------- Breakdown Doughnut Chart ----------
+        let breakdownChart;
+        async function loadBreakdownChart() {
+            const type = document.getElementById('breakdownType').value;
+            const start = document.getElementById('start_date').value;
+            const end = document.getElementById('end_date').value;
+            const dir = document.getElementById('direction').value;
+            const intType = document.getElementById('is_internal').value;
+            const q = document.getElementById('search').value;
+
+            const params = new URLSearchParams({
+                type: type,
+                start_date: start,
+                end_date: end,
+                direction: dir,
+                is_internal: intType,
+                search: q
+            });
+            const res = await fetch('/api/breakdown?' + params.toString());
+            const json = await res.json();
+            const data = json.data;
+
+            const labels = data.map(d => d.label);
+            const counts = data.map(d => d.count);
+            const ctx = document.getElementById('breakdownChart').getContext('2d');
+
+            if (breakdownChart) breakdownChart.destroy();
+
+            const isDark = document.body.classList.contains('dark');
+            const textColor = isDark ? '#f1f5f9' : '#1e293b';
+
+            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
+            breakdownChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: counts,
+                        backgroundColor: colors.slice(0, labels.length),
+                        borderColor: '#ffffff',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: textColor,
+                                padding: 15,
+                                usePointStyle: true,
+                                font: { size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                    const percent = ((ctx.raw / total) * 100).toFixed(1);
+                                    return `${ctx.label}: ${ctx.raw} (${percent}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.getElementById('breakdownType').addEventListener('change', loadBreakdownChart);
+
+        // ---------- Filter & Reset ----------
         document.getElementById('filterForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            refreshDashboard();
+            currentPage = 1;
+            refreshDashboard(1);
+            loadBreakdownChart();
         });
         document.getElementById('resetFiltersBtn').addEventListener('click', () => {
             document.getElementById('start_date').value = '';
@@ -394,19 +625,24 @@
             document.getElementById('direction').value = '';
             document.getElementById('is_internal').value = '';
             document.getElementById('search').value = '';
-            // After reset, reapply today's date
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('start_date').value = today;
             document.getElementById('end_date').value = today;
-            refreshDashboard();
+            currentPage = 1;
+            refreshDashboard(1);
+            loadBreakdownChart();
         });
 
         // Initial load
-        refreshDashboard();
-        loadChart();
+        (async () => {
+            await refreshDashboard(1);
+            loadChart();
+            loadBreakdownChart();
+        })();
 
         // Auto-refresh
-        setInterval(refreshDashboard, 10000);
+        setInterval(() => refreshDashboard(currentPage), 10000);
+        setInterval(loadBreakdownChart, 30000);
     </script>
 </body>
 </html>
