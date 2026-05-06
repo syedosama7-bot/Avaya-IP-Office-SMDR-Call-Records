@@ -15,21 +15,32 @@ def insert_call(call_data):
     conn.commit()
     conn.close()
 
-def fetch_calls(where_clause, params, limit=100):
+def fetch_calls(where_clause, params, limit=20, offset=0):
+    """Return a list of call rows (sqlite3.Row) with pagination."""
     conn = get_db()
     cursor = conn.cursor()
     query = f"""
         SELECT id, call_start, duration_raw, ring_time, caller, direction,
-               called_num, is_internal, party1_name, party2_name, hold_time, cost
+               called_num, is_internal, party1_name, party2_name, hold_time, cost,
+               call_id
         FROM calls
         {where_clause}
         ORDER BY id DESC
-        LIMIT ?
+        LIMIT ? OFFSET ?
     """
-    cursor.execute(query, params + [limit])
+    cursor.execute(query, params + [limit, offset])
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+def count_calls(where_clause, params):
+    """Return total number of calls matching the filter."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute(f"SELECT COUNT(*) FROM calls {where_clause}", params)
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
 
 def summary_stats(where_clause, params):
     conn = get_db()
@@ -44,6 +55,3 @@ def summary_stats(where_clause, params):
     row = cursor.fetchone()
     conn.close()
     return row
-
-# You may add more specific query functions for reports here if desired,
-# but for brevity we keep the generate_report logic in blueprints/reports.py using get_db().

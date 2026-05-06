@@ -3,7 +3,6 @@ from flask import current_app
 from werkzeug.security import generate_password_hash
 
 def get_db():
-    """Return a connection to the database."""
     conn = sqlite3.connect(current_app.config['DATABASE'])
     conn.row_factory = sqlite3.Row
     return conn
@@ -89,6 +88,44 @@ def init_db():
     ''')
     cursor.execute("INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)",
                    ('admin', generate_password_hash('admin123'), 'admin'))
+
+    # Add last_seen and last_ip columns if missing
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_seen TEXT")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_ip TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    # Settings table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+
+    # Audit log table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT,
+            ip_address TEXT,
+            timestamp TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # Force logout table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS force_logout (
+            user_id INTEGER PRIMARY KEY
+        )
+    ''')
+
     conn.commit()
     conn.close()
     print("[OK] Database Ready (with users)")
