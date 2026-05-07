@@ -15,6 +15,7 @@
             {% endfor %}
         {% endwith %}
 
+        <!-- SMDR Listener & Web Interface -->
         <div class="card mb-4">
             <div class="card-header">SMDR Listener</div>
             <div class="card-body">
@@ -46,6 +47,59 @@
                 <div class="alert alert-info mt-3">
                     <i class="bi bi-info-circle"></i> After saving, you must restart the application for the new settings to take effect.
                 </div>
+            </div>
+        </div>
+
+        <!-- PABX Server Management -->
+        <div class="card mb-4">
+            <div class="card-header">PABX Servers (Allowed IPs)</div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('auth.add_pabx') }}" class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <input type="text" name="pabx_name" class="form-control" placeholder="Server Name" required>
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="pabx_ip" class="form-control" placeholder="IP Address" required>
+                    </div>
+<!-- Inside the PABX Servers card, before the closing </div> of card-body -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label for="pabx_timeout" class="form-label">Online Timeout (minutes)</label>
+                    <input type="number" name="pabx_online_timeout_minutes" id="pabx_timeout" class="form-control" value="{{ settings['pabx_online_timeout_minutes'] }}" min="1" max="1440">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" formaction="{{ url_for('auth.settings') }}" class="btn btn-primary">Save Timeout</button>
+                </div>
+            </div>                    
+                    <div class="col-md-4">
+                        <label for="pabx_interval" class="form-label">Check Interval (minutes)</label>
+                        <input type="number" name="pabx_check_interval_minutes" id="pabx_interval" class="form-control" value="{{ settings['pabx_check_interval_minutes'] }}" min="1" max="1440">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-circle"></i> Add</button>
+                    </div>
+                </form>
+
+                {% if pabx_servers %}
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr><th>Name</th><th>IP</th><th>Action</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for s in pabx_servers %}
+                        <tr>
+                            <td>{{ s.name }}</td>
+                            <td>{{ s.ip }}</td>
+                            <td>
+                                <a href="{{ url_for('auth.delete_pabx', ip=s.ip) }}" class="btn btn-sm btn-danger" onclick="return confirm('Remove this server?')"><i class="bi bi-trash"></i></a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted">No servers configured. Add at least one to accept SMDR connections.</p>
+                {% endif %}
             </div>
         </div>
     </div>
