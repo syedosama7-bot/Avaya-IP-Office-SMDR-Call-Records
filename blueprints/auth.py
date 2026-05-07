@@ -4,6 +4,7 @@ import tempfile
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from flask import send_file
+from models.settings import get_pabx_servers, get_pabx_status, get_setting
 
 import sqlite3
 from flask import (Blueprint, render_template, request, redirect,
@@ -20,6 +21,9 @@ from models.audit import log_action, get_audit_logs, get_all_audit_logs
 from models.user import get_active_users, force_logout_user
 
 
+from models.settings import (get_all_settings, update_settings, set_setting,
+                             get_pabx_servers, add_pabx_server, remove_pabx_server)
+from models.settings import get_pabx_status, get_pabx_servers
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -147,7 +151,7 @@ def settings():
         log_action(current_user.id, "Updated system settings")
         flash('Settings saved. Restart the application for changes to take effect.', 'success')
         return redirect(url_for('auth.settings'))
-    return render_template('settings.html', settings=get_all_settings())
+    return render_template('settings.html', settings=get_all_settings(), pabx_servers=get_pabx_servers())
 
 
 @auth_bp.route('/admin/audit')
@@ -414,3 +418,54 @@ def force_logout_route(user_id):
     log_action(current_user.id, f"Forcefully logged out user ID {user_id}")
     flash('User will be logged out on their next request.', 'success')
     return redirect(url_for('auth.active_sessions'))
+
+
+@auth_bp.route('/admin/settings/add_pabx', methods=['POST'])
+@admin_required
+def add_pabx():
+    name = request.form.get('pabx_name', '').strip()
+    ip = request.form.get('pabx_ip', '').strip()
+    if not name or not ip:
+        flash('Name and IP are required.', 'danger')
+    else:
+        if add_pabx_server(name, ip):
+            flash('PABX server added.', 'success')
+        else:
+            flash('Server with that IP already exists.', 'danger')
+    return redirect(url_for('auth.settings'))
+
+@auth_bp.route('/admin/settings/delete_pabx/<ip>')
+@admin_required
+def delete_pabx(ip):
+    remove_pabx_server(ip)
+    flash('Server removed.', 'info')
+    return redirect(url_for('auth.settings'))
+
+from models.settings import get_pabx_servers, get_pabx_status, get_setting
+
+@auth_bp.route('/admin/status')
+@admin_required
+def system_status():
+    server_list = get_pabx_servers()
+    status_db = get_pabx_status() if server_list else {}
+    timeout_minutes = int(get_setting('pabx_online_timeout_minutes') or 15)
+    now = datetime.now()
+    status_rows = []
+    for s in server_list:
+        ip = s['ip']
+        info = status_db.get(ip, {})
+        last_seen_str = info.get('last_seen')
+        online = False
+        if last_seen_str:
+            try:
+                last_dt = datetime.strptime(last_seen_str, '%Y-%m-%d %H:%M:%S')
+                online = (now - last_dt).total_seconds() <= timeout_minutes * 60
+            except:
+                pass
+        status_rows.append({
+            'name': s['name'],
+            'ip': ip,
+            'connected': online,
+            'last_seen': last_seen_str or 'Never'
+        })
+    return render_template('system_status.html', servers=status_rows)

@@ -376,14 +376,77 @@ def generate_report(report_type):
         if not call_id:
             conn.close()
             return "Please provide a Call ID.", 400
-        where, params = build_where([], [])
-        conditions = ["call_id = ?"]
-        params = [int(call_id)]
-        conditions, params = apply_user_filter(conditions, params)
-        where = "WHERE " + " AND ".join(conditions)
-        query = f"SELECT * FROM calls {where} ORDER BY id ASC"
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
+
+        # Optional row_id to pinpoint the exact journey (for reboot resilience)
+        row_id = request.args.get('row_id', '')
+
+        if row_id:
+            # Find the selected leg first
+            cursor.execute("SELECT call_start, call_id FROM calls WHERE id = ?", (int(row_id),))
+            ref_row = cursor.fetchone()
+            if ref_row:
+                ref_start = ref_row['call_start']
+                ref_call_id = ref_row['call_id']
+                # Determine a time window: from a few minutes before the first leg
+                # to a generous end. We'll fetch all legs with the same call_id,
+                # then filter in Python to the contiguous block around ref_start.
+                conn.close()
+                conn = get_db()
+                cursor = conn.cursor()
+                # Get all legs with this call_id, ordered by id (or start_time)
+                cursor.execute("SELECT * FROM calls WHERE call_id = ? ORDER BY id ASC", (int(call_id),))
+                all_rows = cursor.fetchall()
+
+                # Filter to only legs within the same journey session:
+                # We consider legs that are within 5 minutes of the previous leg's start time.
+                # Build a contiguous block containing the selected row id.
+                journey_rows = []
+                selected_idx = None
+                for i, r in enumerate(all_rows):
+                    if r['id'] == int(row_id):
+                        selected_idx = i
+                        break
+
+                if selected_idx is not None:
+                    # Walk backward and forward, including legs while gap ≤ 5 minutes
+                    legs = [all_rows[selected_idx]]
+                    # backward
+                    prev_start = ref_start
+                    for j in range(selected_idx - 1, -1, -1):
+                        curr = all_rows[j]
+                        curr_start = curr['call_start']
+                        # if the gap between this leg's start and the previous leg's start ≤ 5 min
+                        if (datetime.strptime(prev_start, '%Y/%m/%d %H:%M:%S') -
+                            datetime.strptime(curr_start, '%Y/%m/%d %H:%M:%S')).total_seconds() <= 300:
+                            legs.insert(0, curr)
+                            prev_start = curr_start
+                        else:
+                            break
+                    # forward
+                    next_start = ref_start
+                    for j in range(selected_idx + 1, len(all_rows)):
+                        curr = all_rows[j]
+                        curr_start = curr['call_start']
+                        if (datetime.strptime(curr_start, '%Y/%m/%d %H:%M:%S') -
+                            datetime.strptime(next_start, '%Y/%m/%d %H:%M:%S')).total_seconds() <= 300:
+                            legs.append(curr)
+                            next_start = curr_start
+                        else:
+                            break
+                    journey_rows = legs
+                else:
+                    journey_rows = all_rows  # fallback (should not happen)
+
+            else:
+                # row_id not found, fallback to all legs with that call_id
+                cursor.execute("SELECT * FROM calls WHERE call_id = ? ORDER BY id ASC", (int(call_id),))
+                journey_rows = cursor.fetchall()
+        else:
+            # No row_id – get all legs with that call_id (may include duplicates after reboot)
+            cursor.execute("SELECT * FROM calls WHERE call_id = ? ORDER BY id ASC", (int(call_id),))
+            journey_rows = cursor.fetchall()
+
+        # Build output rows
         headers = [
             'ID', 'Start Time', 'Duration', 'Ring (s)', 'Caller', 'Direction',
             'Called', 'Dialed', 'Account', 'Internal', 'Call ID', 'Cont',
@@ -391,7 +454,7 @@ def generate_report(report_type):
             'Hold (s)', 'Park (s)', 'Auth Valid', 'Auth Code', 'Cost'
         ]
         output_rows = []
-        for r in rows:
+        for r in journey_rows:
             r = list(r) + [''] * 15
             output_rows.append((
                 r[0], r[1], r[2], r[4], r[5], r[6],
@@ -401,8 +464,16 @@ def generate_report(report_type):
             ))
         title = f'Call Journey (Call ID: {call_id})'
         log_action(current_user.id, f"Viewed report: {title}")
+        show_diagram = request.args.get('diagram', '0') == '1'
         conn.close()
-        return render_template('report_view.html', report_type=report_type, report_title=title, headers=headers, rows=output_rows, filters=request.args)
+        return render_template('report_view.html',
+                               report_type=report_type,
+                               report_title=title,
+                               headers=headers,
+                               rows=output_rows,
+                               filters=request.args,
+                               show_diagram=show_diagram,
+                               call_id=call_id)
 
     elif report_type == 'duration_distribution':
         where, params = build_where()
@@ -548,7 +619,6 @@ def generate_report(report_type):
 
     elif report_type == 'trunk_peak_utilisation':
         where, params = build_where()
-        # Add trunk filter to the inner WHERE clause
         inner_where = where
         if inner_where:
             inner_where += " AND party2_device LIKE 'T%'"
@@ -570,6 +640,9 @@ def generate_report(report_type):
         rows = cursor.fetchall()
         headers = ['Trunk', 'Peak Calls', 'Peak Hour']
         title = 'Trunk Peak Utilisation'
+        log_action(current_user.id, f"Viewed report: {title}")
+        conn.close()
+        return render_template('report_view.html', report_type=report_type, report_title=title, headers=headers, rows=rows, filters=request.args)
 
     elif report_type == 'outcome_summary':
         where, params = build_where()
@@ -599,3 +672,89 @@ def generate_report(report_type):
 
     conn.close()
     return render_template('report_view.html', report_type=report_type, report_title=title, headers=headers, rows=rows, filters=request.args)
+
+
+# ========== JSON endpoint for Call Journey diagram ==========
+@reports_bp.route('/report/call_journey/json')
+@login_required
+def call_journey_json():
+    call_id = request.args.get('call_id', '')
+    row_id = request.args.get('row_id', '')
+
+    if not call_id:
+        return {"error": "call_id is required"}, 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Fetch all legs with that call_id
+    cursor.execute("SELECT * FROM calls WHERE call_id = ? ORDER BY id ASC", (int(call_id),))
+    all_rows = cursor.fetchall()
+
+    if not row_id:
+        # No row_id – return all legs (might be inaccurate after PBX reboot)
+        journey_rows = all_rows
+    else:
+        # Find the selected leg
+        ref = None
+        for r in all_rows:
+            if r['id'] == int(row_id):
+                ref = r
+                break
+        if not ref:
+            journey_rows = all_rows
+        else:
+            ref_start = ref['call_start']
+            # Build contiguous block around ref using 5‑minute gap
+            legs = [ref]
+            prev = ref_start
+            # backward
+            for r in reversed(all_rows[:all_rows.index(ref)]):
+                curr_start = r['call_start']
+                if (datetime.strptime(prev, '%Y/%m/%d %H:%M:%S') -
+                    datetime.strptime(curr_start, '%Y/%m/%d %H:%M:%S')).total_seconds() <= 300:
+                    legs.insert(0, r)
+                    prev = curr_start
+                else:
+                    break
+            # forward
+            next_start = ref_start
+            for r in all_rows[all_rows.index(ref)+1:]:
+                curr_start = r['call_start']
+                if (datetime.strptime(curr_start, '%Y/%m/%d %H:%M:%S') -
+                    datetime.strptime(next_start, '%Y/%m/%d %H:%M:%S')).total_seconds() <= 300:
+                    legs.append(r)
+                    next_start = curr_start
+                else:
+                    break
+            journey_rows = legs
+
+    conn.close()
+
+    result = []
+    for r in journey_rows:
+        r = list(r) + [''] * 15
+        result.append({
+            'id': r[0],
+            'start_time': r[1],
+            'duration': r[2],
+            'ring': r[4],
+            'caller': r[5],
+            'direction': r[6],
+            'called': r[7],
+            'dialed': r[8],
+            'account': r[9],
+            'internal': r[10],
+            'call_id': r[11],
+            'continuation': r[12],
+            'p1_device': r[13],
+            'p1_name': r[14],
+            'p2_device': r[15],
+            'p2_name': r[16],
+            'hold': r[17],
+            'park': r[18],
+            'auth_valid': r[19],
+            'auth_code': r[20],
+            'cost': r[21]
+        })
+    return {'legs': result}

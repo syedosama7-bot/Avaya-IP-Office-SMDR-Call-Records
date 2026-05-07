@@ -5,7 +5,8 @@ from models.database import get_db
 from utils import apply_user_filter
 from datetime import datetime, timedelta
 from models.audit import log_action
-from services.smdr_listener import status as listener_status
+from models.settings import get_pabx_status, get_pabx_servers
+
 import sqlite3
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -274,11 +275,45 @@ def api_breakdown():
     result = [{"label": row["label"] or "Unknown", "count": row["cnt"]} for row in rows]
     return {"data": result, "type": breakdown_type}
 
+from models.settings import get_pabx_servers, get_pabx_status, get_setting
+
 @dashboard_bp.route('/api/connection_status')
 @login_required
 def connection_status():
+    servers_list = get_pabx_servers()
+    status_db = get_pabx_status() if servers_list else {}
+    timeout_minutes = int(get_setting('pabx_online_timeout_minutes') or 15)
+    now = datetime.now()
+    servers = []
+    any_connected = False
+    last_ip = ''
+    last_seen = ''
+
+    for s in servers_list:
+        ip = s['ip']
+        info = status_db.get(ip, {})
+        last_seen_str = info.get('last_seen')
+        online = False
+        if last_seen_str:
+            try:
+                last_dt = datetime.strptime(last_seen_str, '%Y-%m-%d %H:%M:%S')
+                online = (now - last_dt).total_seconds() <= timeout_minutes * 60
+                if online:
+                    any_connected = True
+                    last_ip = ip
+                    last_seen = last_seen_str
+            except:
+                pass
+        servers.append({
+            'name': s['name'],
+            'ip': ip,
+            'connected': online,
+            'last_seen': last_seen_str or 'Never'
+        })
+
     return {
-        'connected': listener_status['connected'],
-        'ip': listener_status['ip'] if listener_status['connected'] else '',
-        'last_seen': listener_status['last_seen']
+        'connected': any_connected,
+        'ip': last_ip,
+        'last_seen': last_seen,
+        'servers': servers
     }
