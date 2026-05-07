@@ -16,7 +16,6 @@ def insert_call(call_data):
     conn.close()
 
 def fetch_calls(where_clause, params, limit=20, offset=0):
-    """Return a list of call rows (sqlite3.Row) with pagination."""
     conn = get_db()
     cursor = conn.cursor()
     query = f"""

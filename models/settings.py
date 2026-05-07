@@ -1,14 +1,19 @@
 from .database import get_db
+import json
 
 DEFAULTS = {
     'smdr_ip': '0.0.0.0',
     'smdr_port': '9001',
     'web_host': '0.0.0.0',
     'web_port': '5000',
-    'backup_path': '',                # empty means disabled
-    'backup_interval_hours': '24',    # daily by default
-    'last_backup_time': '',           # timestamp of last automatic backup
-    'last_backup_status': ''          # success/failure message
+    'backup_path': '',
+    'backup_interval_hours': '24',
+    'last_backup_time': '',
+    'last_backup_status': '',
+    'pabx_servers': '[]',
+    'pabx_status': '{}',
+    'pabx_online_timeout_minutes': '15',       # <-- comma was missing here
+    'pabx_check_interval_minutes': '5'         # new key for monitor
 }
 
 def get_setting(key):
@@ -26,7 +31,6 @@ def get_all_settings():
     rows = cursor.fetchall()
     conn.close()
     settings = dict(rows)
-    # Fill missing keys with defaults
     for k, v in DEFAULTS.items():
         if k not in settings:
             settings[k] = v
@@ -40,7 +44,39 @@ def set_setting(key, value):
     conn.close()
 
 def update_settings(data):
-    """data is a dict with key/values to update."""
     for k, v in data.items():
-        if k in DEFAULTS:   # only allow known keys
+        if k in DEFAULTS:
             set_setting(k, v)
+
+# ---------- PABX server management ----------
+def get_pabx_servers():
+    return json.loads(get_setting('pabx_servers'))
+
+def save_pabx_servers(servers):
+    set_setting('pabx_servers', json.dumps(servers))
+
+def add_pabx_server(name, ip):
+    servers = get_pabx_servers()
+    if any(s['ip'] == ip for s in servers):
+        return False
+    servers.append({'name': name, 'ip': ip})
+    save_pabx_servers(servers)
+    return True
+
+def remove_pabx_server(ip):
+    servers = [s for s in get_pabx_servers() if s['ip'] != ip]
+    save_pabx_servers(servers)
+
+# ---------- PABX status (persistent) ----------
+def get_pabx_status():
+    return json.loads(get_setting('pabx_status'))
+
+def update_pabx_status(ip, name, connected, last_seen=None):
+    status = get_pabx_status()
+    entry = status.get(ip, {'name': name})
+    entry['name'] = name
+    entry['connected'] = connected
+    if last_seen:
+        entry['last_seen'] = last_seen
+    status[ip] = entry
+    set_setting('pabx_status', json.dumps(status))
