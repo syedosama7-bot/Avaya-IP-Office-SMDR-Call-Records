@@ -16,6 +16,7 @@ from blueprints.auth import auth_bp
 from blueprints.dashboard import dashboard_bp
 from blueprints.reports import reports_bp
 from blueprints.export import export_bp
+from services.pabx_monitor import start_monitor
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -24,6 +25,7 @@ def create_app():
     app.config.from_object(Config)
     app.secret_key = os.urandom(24)   # changes every restart → logs out all users
     app.config['START_TIME'] = datetime.now()
+    start_monitor(app.config['DATABASE'])
 
     # ---------- Configure application logging ----------
     log_dir = os.path.join(BASE_DIR, 'logs')
