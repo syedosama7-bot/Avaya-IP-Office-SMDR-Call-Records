@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Avaya CDR{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f4f7fc;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --sidebar-bg-start: #1e293b;
+            --sidebar-bg-end: #0f172a;
+            --sidebar-text: #cbd5e1;
+            --sidebar-hover: #334155;
+            --sidebar-active: #3b82f6;
+            --topbar-bg: #ffffff;
+            --footer-bg: #f8fafc;
+            --card-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 10px 15px -3px rgba(0,0,0,0.05);
+            --card-hover-shadow: 0 10px 25px -3px rgba(0,0,0,0.1);
+        }
+        body.dark {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --sidebar-bg-start: #0f172a;
+            --sidebar-bg-end: #020617;
+            --sidebar-text: #94a3b8;
+            --sidebar-hover: #1e293b;
+            --topbar-bg: #1e293b;
+            --footer-bg: #0f172a;
+            --card-shadow: 0 4px 6px -1px rgba(0,0,0,0.3), 0 10px 15px -3px rgba(0,0,0,0.3);
+        }
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: background 0.3s, color 0.3s;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 260px;
+            background: linear-gradient(180deg, var(--sidebar-bg-start) 0%, var(--sidebar-bg-end) 100%);
+            color: var(--sidebar-text);
+            position: fixed;
+            top: 0; left: 0;
+            bottom: 0;
+            z-index: 1000;
+            padding: 1.5rem 0;
+            box-shadow: 4px 0 20px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s;
+        }
+        .sidebar.collapsed { transform: translateX(-100%); }
+        .sidebar-logo {
+            padding: 0 1.5rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .sidebar-logo .logo-icon {
+            font-size: 2rem;
+            background: rgba(255,255,255,0.15);
+            width: 48px; height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .nav-link {
+            color: var(--sidebar-text);
+            padding: 0.65rem 1.5rem;
+            margin: 0.15rem 0;
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+            border-left: 3px solid transparent;
+            text-decoration: none;
+            transition: all 0.15s;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: var(--sidebar-hover);
+            color: white;
+            border-left-color: var(--sidebar-active);
+        }
+        .nav-link i { margin-right: 0.75rem; font-size: 1.1rem; }
+        .sidebar-footer {
+            margin-top: auto;
+            padding: 1.5rem;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.4);
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Top bar */
+        .topbar {
+            position: fixed;
+            top: 0;
+            left: 260px;
+            right: 0;
+            height: 60px;
+            background: var(--topbar-bg);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            z-index: 999;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .sidebar-toggle {
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-color);
+        }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .theme-toggle {
+            cursor: pointer;
+            font-size: 1.3rem;
+            color: var(--text-color);
+            background: none;
+            border: none;
+        }
+
+        /* Main content */
+        .main-content {
+            margin-left: 260px;
+            margin-top: 60px;
+            padding: 1.5rem;
+            flex: 1;
+            min-height: calc(100vh - 60px);
+            background: var(--bg-color);
+            transition: margin-left 0.3s;
+            position: relative;
+        }
+
+        /* Footer with pattern */
+        .app-footer {
+            margin-top: 2rem;
+            padding: 1rem 0;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border-color);
+            background-image: radial-gradient(circle, var(--border-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+            background-position: top center;
+            background-repeat: repeat-x;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+        }
+        .card-header {
+            background: transparent;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+            color: var(--text-color);
+        }
+        .card-body { color: var(--text-color); }
+        .table {
+            color: var(--text-color);
+            background-color: var(--card-bg);
+        }
+        .table th {
+            background-color: var(--border-color);
+            color: var(--text-color);
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .table td {
+            color: var(--text-color);
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+        }
+        .table-hover tbody tr:hover td { background-color: rgba(0,0,0,0.03); }
+        body.dark .table-hover tbody tr:hover td { background-color: #2a3a4e; }
+        .table-striped > tbody > tr:nth-of-type(odd) > td { background-color: rgba(0,0,0,0.02); }
+        body.dark .table-striped > tbody > tr:nth-of-type(odd) > td { background-color: #222d3a; }
+        .btn-outline-secondary, .btn-outline-success, .btn-outline-danger {
+            border-color: var(--border-color); color: var(--text-color);
+        }
+        body.dark .btn-outline-secondary,
+        body.dark .btn-outline-success,
+        body.dark .btn-outline-danger { border-color: #ffffff; color: #ffffff; }
+        body.dark .btn-outline-secondary:hover,
+        body.dark .btn-outline-success:hover,
+        body.dark .btn-outline-danger:hover { background-color: #ffffff; color: #000; }
+        .form-control, .form-select {
+            background-color: var(--card-bg); color: var(--text-color); border-color: var(--border-color);
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: var(--card-bg); color: var(--text-color);
+            border-color: #2563eb; box-shadow: 0 0 0 0.2rem rgba(37,99,235,0.25);
+        }
+        .alert {
+            background-color: var(--card-bg); color: var(--text-color); border-color: var(--border-color);
+        }
+
+        @media (max-width: 991.98px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.collapsed { transform: translateX(0); }
+            .topbar { left: 0; }
+            .main-content { margin-left: 0; }
+            .sidebar-toggle { display: block; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="logo-icon"><i class="bi bi-telephone-inbound"></i></div>
+            <span>Avaya CDR</span>
+        </div>
+        <nav class="flex-grow-1">
+            <a href="{{ url_for('dashboard.index') }}" class="nav-link {{ 'active' if request.endpoint == 'dashboard.index' }}">
+                <i class="bi bi-house"></i> Dashboard
+            </a>
+            <a href="{{ url_for('reports.reports') }}" class="nav-link {{ 'active' if request.endpoint and 'reports.' in request.endpoint }}">
+                <i class="bi bi-file-earmark-bar-graph"></i> Reports
+            </a>
+            {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('auth.list_users') }}" class="nav-link {{ 'active' if request.endpoint and 'auth.list_users' == request.endpoint }}">
+                <i class="bi bi-people"></i> Users
+            </a>
+            <a href="{{ url_for('auth.settings') }}" class="nav-link {{ 'active' if request.endpoint and 'auth.settings' == request.endpoint }}">
+                <i class="bi bi-gear"></i> Settings
+            </a>
+            <a href="{{ url_for('auth.system_status') }}" class="nav-link">
+                <i class="bi bi-hdd-stack"></i> System Status
+            </a>
+            <a href="{{ url_for('auth.view_audit') }}" class="nav-link">
+                <i class="bi bi-journal-text"></i> Audit
+            </a>
+            <a href="{{ url_for('auth.maintenance') }}" class="nav-link">
+                <i class="bi bi-tools"></i> Maintenance
+            </a>
+            {% endif %}
+            <a href="{{ url_for('auth.change_password') }}" class="nav-link">
+                <i class="bi bi-key"></i> Change Password
+            </a>
+            <a href="{{ url_for('auth.my_preferences') }}" class="nav-link">
+                <i class="bi bi-envelope"></i> My Preferences
+            </a>
+            <a href="{{ url_for('auth.logout') }}" class="nav-link">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            &copy; 2026 Avaya CDR<br>Osama Bukhari
+        </div>
+    </aside>
+
+    <header class="topbar">
+        <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+            <i class="bi bi-list"></i>
+        </button>
+        <div class="user-info">
+            <span class="text-muted small">
+                <i class="bi bi-person-circle"></i> {{ current_user.username }}
+            </span>
+            <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
+                <i class="bi bi-moon-stars"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        {% block content %}{% endblock %}
+        <footer class="app-footer">
+            <span><i class="bi bi-telephone"></i> Avaya CDR Application – Your Telecom Analytics Hub</span>
+        </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebar = document.getElementById('sidebar');
+        sidebarToggle.addEventListener('click', () => sidebar.classList.toggle('collapsed'));
+
+        const themeToggle = document.getElementById('themeToggle');
+        const icon = themeToggle.querySelector('i');
+        function setTheme(mode) {
+            if (mode === 'dark') {
+                document.body.classList.add('dark');
+                icon.className = 'bi bi-sun';
+            } else {
+                document.body.classList.remove('dark');
+                icon.className = 'bi bi-moon-stars';
+            }
+            localStorage.setItem('theme', mode);
+        }
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        setTheme(savedTheme);
+        themeToggle.addEventListener('click', () => {
+            const current = document.body.classList.contains('dark') ? 'dark' : 'light';
+            setTheme(current === 'dark' ? 'light' : 'dark');
+        });
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

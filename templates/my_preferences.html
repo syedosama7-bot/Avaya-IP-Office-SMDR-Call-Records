@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}My Preferences{% endblock %}
+{% block content %}
+<h2><i class="bi bi-envelope me-2"></i>My Preferences</h2>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+{% endwith %}
+
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-person-gear"></i> Email Settings</div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="mb-3">
+                <label for="email" class="form-label fw-semibold">Your Email Address</label>
+                <input type="email" name="email" id="email" class="form-control"
+                       value="{{ user[5] if user|length > 5 else '' }}" placeholder="you@example.com">
+                <small class="text-muted">Reports and alerts will be sent to this address.</small>
+            </div>
+            {% if current_user.role == 'admin' %}
+            <div class="mb-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="email_reports_enabled" id="email_reports_enabled"
+                           {% if user|length > 6 and user[6] == 1 %}checked{% endif %}>
+                    <label class="form-check-label" for="email_reports_enabled">Receive Scheduled Reports</label>
+                </div>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" name="email_alerts_enabled" id="email_alerts_enabled"
+                           {% if user|length > 7 and user[7] == 1 %}checked{% endif %}>
+                    <label class="form-check-label" for="email_alerts_enabled">Receive System Alerts</label>
+                </div>
+            </div>
+            {% endif %}
+            <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Save Preferences</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

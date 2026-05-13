@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}Email Schedule – {{ user[1] }}{% endblock %}
+{% block extra_head %}
+<style>
+    #dailyFields, #weeklyFields, #monthlyFields, #filterFields { display: none; }
+</style>
+{% endblock %}
+{% block content %}
+<h2><i class="bi bi-calendar-check me-2"></i>Email Schedule for {{ user[1] }}</h2>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+{% endwith %}
+
+<div class="card mb-4">
+    <div class="card-header"><i class="bi bi-envelope-plus"></i> Add / Edit Schedule</div>
+    <div class="card-body">
+        <form method="POST" id="scheduleForm">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Report Type</label>
+                    <select name="report_type" id="report_type" class="form-select" required>
+                        <option value="">-- Select --</option>
+                        {% for rtype in report_types %}
+                        <option value="{{ rtype[0] }}">{{ rtype[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-semibold">Frequency</label>
+                    <select name="frequency" id="frequency" class="form-select">
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+                <div class="col-md-2" id="dailyFields" style="display:block;">
+                    <label class="form-label fw-semibold">Time</label>
+                    <input type="time" name="schedule_time_daily" id="daily_time" class="form-control" value="08:00">
+                </div>
+                <div class="col-md-2" id="weeklyFields" style="display:none;">
+                    <label class="form-label fw-semibold">Day of Week</label>
+                    <select name="schedule_day_weekly" id="weekly_day" class="form-select">
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                        <option value="7">Sunday</option>
+                    </select>
+                </div>
+                <div class="col-md-2" id="monthlyFields" style="display:none;">
+                    <label class="form-label fw-semibold">Day of Month</label>
+                    <input type="number" name="schedule_day_monthly" id="monthly_day" class="form-control" min="1" max="31" value="1">
+                </div>
+                <div class="col-md-2" id="timeFieldExtra" style="display:none;">
+                    <label class="form-label fw-semibold">Time</label>
+                    <input type="time" name="schedule_time_extra" id="weekly_monthly_time" class="form-control" value="08:00">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="enabled" id="enabled" checked>
+                        <label class="form-check-label" for="enabled">Active</label>
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-save me-1"></i> Save</button>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div id="filterFields" class="mt-4">
+                <h6 class="fw-semibold"><i class="bi bi-funnel me-1"></i>Report Filters</h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label small">Start Date</label>
+                        <input type="date" name="start_date" id="f_start_date" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small">End Date</label>
+                        <input type="date" name="end_date" id="f_end_date" class="form-control form-control-sm">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Direction</label>
+                        <select name="direction" id="f_direction" class="form-select form-select-sm">
+                            <option value="">All</option>
+                            <option value="Inbound">Inbound</option>
+                            <option value="Outbound">Outbound</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Call Type</label>
+                        <select name="is_internal" id="f_is_internal" class="form-select form-select-sm">
+                            <option value="">All</option>
+                            <option value="internal">Internal</option>
+                            <option value="external">External</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">Search</label>
+                        <input type="text" name="search" id="f_search" class="form-control form-control-sm" placeholder="Number, name...">
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-list-check"></i> Active Subscriptions</div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-striped mb-0 align-middle">
+                <thead>
+                    <tr><th>Report</th><th>Schedule</th><th>Filters</th><th>Status</th><th class="text-center">Delete</th></tr>
+                </thead>
+                <tbody>
+                    {% for sub in subscriptions %}
+                    <tr>
+                        <td>{{ sub['report_type'].replace('_', ' ').title() }}</td>
+                        <td>
+                            {% if sub['frequency'] == 'daily' %}
+                                Daily at {{ sub['schedule_time'] }}
+                            {% elif sub['frequency'] == 'weekly' %}
+                                Every {{ ['', 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][sub['schedule_day']] }} at {{ sub['schedule_time'] }}
+                            {% elif sub['frequency'] == 'monthly' %}
+                                Monthly on {{ sub['schedule_day'] }}th at {{ sub['schedule_time'] }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sub.filters %}
+                                <small>
+                                {% if sub.filters.start_date %}From {{ sub.filters.start_date }}{% endif %}
+                                {% if sub.filters.end_date %} ~ {{ sub.filters.end_date }}{% endif %}
+                                {% if sub.filters.direction %} | Dir: {{ sub.filters.direction }}{% endif %}
+                                {% if sub.filters.is_internal %} | {{ sub.filters.is_internal|title }}{% endif %}
+                                {% if sub.filters.search %} | 🔍 {{ sub.filters.search }}{% endif %}
+                                </small>
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if sub['enabled'] %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Paused</span>{% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('auth.delete_subscription', sub_id=sub['id']) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete this subscription?')"><i class="bi bi-trash"></i></a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center py-4 text-muted">No subscriptions yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<a href="{{ url_for('auth.list_users') }}" class="btn btn-secondary"><i class="bi bi-arrow-left me-1"></i> Back to Users</a>
+
+<script>
+    const freqSelect = document.getElementById('frequency');
+    const dailyDiv = document.getElementById('dailyFields');
+    const weeklyDiv = document.getElementById('weeklyFields');
+    const monthlyDiv = document.getElementById('monthlyFields');
+    const timeExtra = document.getElementById('timeFieldExtra');
+    const dailyTime = document.getElementById('daily_time');
+    const extraTime = document.getElementById('weekly_monthly_time');
+    const filterFields = document.getElementById('filterFields');
+    const reportTypeSelect = document.getElementById('report_type');
+
+    function updateFields() {
+        const freq = freqSelect.value;
+        dailyDiv.style.display = freq === 'daily' ? 'block' : 'none';
+        weeklyDiv.style.display = freq === 'weekly' ? 'block' : 'none';
+        monthlyDiv.style.display = freq === 'monthly' ? 'block' : 'none';
+        timeExtra.style.display = (freq === 'weekly' || freq === 'monthly') ? 'block' : 'none';
+    }
+    freqSelect.addEventListener('change', updateFields);
+
+    // Clear filter fields when report type changes (prevents accidental carry-over)
+    reportTypeSelect.addEventListener('change', function() {
+        filterFields.style.display = this.value ? 'block' : 'none';
+        if (this.value) {
+            document.getElementById('f_start_date').value = '';
+            document.getElementById('f_end_date').value = '';
+            document.getElementById('f_direction').value = '';
+            document.getElementById('f_is_internal').value = '';
+            document.getElementById('f_search').value = '';
+        }
+    });
+
+    // Before form submit, build the correct schedule_time and schedule_day fields
+    document.getElementById('scheduleForm').addEventListener('submit', function(e) {
+        const freq = freqSelect.value;
+        let timeValue, dayValue;
+
+        if (freq === 'daily') {
+            timeValue = dailyTime.value || '08:00';
+            dayValue = 0;
+        } else {
+            timeValue = extraTime.value || '08:00';
+            if (freq === 'weekly') {
+                dayValue = document.getElementById('weekly_day').value;
+            } else { // monthly
+                dayValue = document.getElementById('monthly_day').value;
+            }
+        }
+
+        // Remove any previously added hidden fields
+        document.querySelectorAll('.auto-generated').forEach(el => el.remove());
+
+        // Add hidden fields for schedule_time and schedule_day
+        function addHidden(name, value) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            input.classList.add('auto-generated');
+            this.appendChild(input);
+        }
+        addHidden.call(this, 'schedule_time', timeValue);
+        addHidden.call(this, 'schedule_day', dayValue);
+    });
+
+    // Initial state
+    updateFields();
+</script>
+{% endblock %}

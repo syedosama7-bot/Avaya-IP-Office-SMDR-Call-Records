@@ -1,648 +1,484 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Avaya CDR Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <style>
-        :root {
-            --bg-color: #f4f7fc;
-            --card-bg: #ffffff;
-            --text-color: #1e293b;
-            --text-muted: #64748b;
-            --border-color: #e2e8f0;
-            --header-gradient: linear-gradient(135deg, #2563eb, #7c3aed);
-            --card-shadow: 0 8px 32px rgba(0,0,0,0.08);
-            --card-hover-shadow: 0 12px 40px rgba(0,0,0,0.12);
-        }
-        body.dark {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-color: #f1f5f9;
-            --text-muted: #94a3b8;
-            --border-color: #334155;
-            --card-shadow: 0 8px 32px rgba(0,0,0,0.4);
-            --card-hover-shadow: 0 12px 40px rgba(0,0,0,0.5);
-        }
-        body {
-            background: var(--bg-color);
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            color: var(--text-color);
-            transition: background 0.3s, color 0.3s;
-        }
-        .header {
-            background: var(--header-gradient);
-            color: white;
-            border-radius: 20px;
-            padding: 1.5rem 2rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-        }
-        .stat-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 1.5rem;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-        .stat-card:hover { transform: translateY(-4px); box-shadow: var(--card-hover-shadow); }
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0;
-            width: 6px;
-            height: 100%;
-            background: var(--accent);
-        }
-        .stat-value {
-            font-size: 2rem;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-        .stat-label {
-            color: var(--text-muted);
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-size: 0.85rem;
-        }
-        .filter-section, .table-container {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
-        }
-        .chart-container {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-            box-shadow: var(--card-shadow);
-            border: 1px solid var(--border-color);
-            height: 380px;
-            overflow: hidden;
-        }
-        .chart-container canvas { display: block; }
-        .theme-toggle {
-            cursor: pointer;
-            font-size: 1.4rem;
-            color: white;
-            background: rgba(255,255,255,0.15);
-            border-radius: 50%;
-            width: 40px; height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: background 0.3s;
-        }
-        .theme-toggle:hover { background: rgba(255,255,255,0.25); }
-        .fade-in { animation: fadeIn 0.4s ease; }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        /* Dark mode table */
-        body.dark .table { color: #ffffff !important; background-color: #1e293b !important; }
-        body.dark .table th { background-color: #2563eb !important; color: #ffffff !important; font-weight: 600; }
-        body.dark .table td { color: #ffffff !important; background-color: #1e293b !important; }
-        body.dark .table-hover tbody tr:hover td { background-color: #2a3a4e !important; }
-        body.dark .btn-outline-success, body.dark .btn-outline-danger, body.dark .btn-outline-secondary {
-            border-color: #ffffff; color: #ffffff;
-        }
-        body.dark .btn-outline-success:hover, body.dark .btn-outline-danger:hover, body.dark .btn-outline-secondary:hover {
-            background-color: #ffffff; color: #000;
-        }
-    </style>
-</head>
-<body>
-    <div class="container-fluid py-4 px-3 px-md-5">
-        <!-- Connection Status Bar -->
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+    .stat-card {
+        border-radius: 18px;
+        padding: 1.5rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0;
+        width: 6px;
+        height: 100%;
+        background: var(--accent);
+        border-radius: 3px;
+    }
+    .stat-card:hover { transform: translateY(-4px); box-shadow: var(--card-hover-shadow); }
+    .stat-value { font-size: 2rem; font-weight: 700; color: var(--text-color); }
+    .stat-label { color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; }
+    .filter-section, .table-container {
+        background: var(--card-bg);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-color);
+    }
+    .chart-container {
+        background: var(--card-bg);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid var(--border-color);
+        height: 380px;
+        overflow: hidden;
+    }
+    .chart-container canvas { display: block; }
+    .fade-in { animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .table-responsive thead th {
+        position: sticky; top: 0; background-color: var(--card-bg); z-index: 2;
+    }
+    .btn:disabled, .btn.disabled { opacity: 0.6; pointer-events: none; }
+
+    /* Hero illustration */
+    .hero-bg {
+        position: absolute;
+        top: 0; right: 0;
+        width: 400px; height: 400px;
+        opacity: 0.05;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .dark .hero-bg { opacity: 0.08; }
+
+    /* Skeleton shimmer */
+    @keyframes shimmer {
+        0% { background-position: -200px 0; }
+        100% { background-position: 200px 0; }
+    }
+    .skeleton {
+        background: linear-gradient(90deg, var(--border-color) 25%, rgba(0,0,0,0.02) 50%, var(--border-color) 75%);
+        background-size: 400px 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 8px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero telecom illustration -->
+<svg class="hero-bg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="80" cy="100" r="40" stroke="#2563eb" stroke-width="2" fill="none"/>
+    <circle cx="320" cy="80" r="30" stroke="#7c3aed" stroke-width="2" fill="none"/>
+    <circle cx="200" cy="300" r="50" stroke="#2563eb" stroke-width="2" fill="none"/>
+    <path d="M80 140 L80 200 Q80 240 120 240 L320 240" stroke="#cbd5e1" stroke-width="2" fill="none"/>
+    <path d="M320 110 L320 200" stroke="#cbd5e1" stroke-width="2" fill="none"/>
+    <rect x="180" y="250" width="40" height="30" rx="5" stroke="#2563eb" stroke-width="2" fill="none"/>
+    <line x1="200" y1="280" x2="200" y2="300" stroke="#2563eb" stroke-width="2"/>
+</svg>
+
+<!-- Connection Status Bar -->
 <div id="connectionBar" class="alert alert-dismissible fade show mb-3 py-2 px-3 d-flex align-items-center" style="display: none; border-radius: 12px;">
     <i class="bi me-2" id="connIcon"></i>
     <span id="connText"></span>
     <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
-        <!-- Header -->
-        <div class="header d-flex align-items-center justify-content-between">
-            <h1 class="display-6 fw-semibold mb-0">
-                <i class="bi bi-telephone-inbound me-2"></i>Avaya Call Records
-            </h1>
-            <div class="d-flex align-items-center">
-                <a href="{{ url_for('reports.reports') }}" class="btn btn-light me-2"><i class="bi bi-file-earmark-bar-graph me-1"></i> Reports</a>
-                
-                {% if current_user.role == 'admin' %}
-                    <a href="{{ url_for('auth.list_users') }}" class="btn btn-light me-2"><i class="bi bi-people"></i> Users</a>
-                    <a href="{{ url_for('auth.settings') }}" class="btn btn-light me-2"><i class="bi bi-gear"></i> Settings</a>
-                    <a href="{{ url_for('auth.system_status') }}" class="btn btn-light me-2"><i class="bi bi-hdd-stack"></i> System Status</a>
-                    <a href="{{ url_for('auth.view_audit') }}" class="btn btn-light me-2"><i class="bi bi-journal-text"></i> Audit</a>
-                    <a href="{{ url_for('auth.maintenance') }}" class="btn btn-light me-2"><i class="bi bi-tools"></i> Maintenance</a>
-                {% endif %}
-                <a href="{{ url_for('auth.change_password') }}" class="btn btn-light me-2"><i class="bi bi-key"></i> Change Password</a>
-                <a href="{{ url_for('auth.logout') }}" class="btn btn-light me-2">Logout</a>
-                <span class="text-white me-2 small">
-                    <i class="bi bi-person-circle"></i> {{ current_user.username }}
-                </span>
-                <div class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
-                    <i class="bi bi-moon-stars"></i>
-                </div>
-            </div>
-        </div>
 
-        <!-- Summary Cards -->
-        <div class="row g-4 mb-4" id="summaryCards"></div>
+<!-- Summary Cards -->
+<div class="row g-4 mb-4" id="summaryCards"></div>
 
-        <!-- Dual Chart Row -->
-        <div class="row g-4 mb-4">
-            <div class="col-md-6">
-                <div class="chart-container">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-semibold mb-0"><i class="bi bi-bar-chart me-2"></i>Call Volume</h5>
-                        <div class="d-flex">
-                            <select id="chartRange" class="form-select form-select-sm me-2" style="width:auto;">
-                                <option value="24h">Last 24h</option>
-                                <option value="7d" selected>Last 7d</option>
-                                <option value="30d">Last 30d</option>
-                                <option value="3m">Last 3m</option>
-                                <option value="1y">Last 1y</option>
-                            </select>
-                            <select id="chartInterval" class="form-select form-select-sm" style="width:auto;">
-                                <option value="hour">Hourly</option>
-                                <option value="day" selected>Daily</option>
-                                <option value="month">Monthly</option>
-                                <option value="year">Yearly</option>
-                            </select>
-                        </div>
-                    </div>
-                    <canvas id="dailyChart" style="max-height: 250px; width: 100%;"></canvas>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="chart-container">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-semibold mb-0"><i class="bi bi-pie-chart me-2"></i>Breakdown</h5>
-                        <select id="breakdownType" class="form-select form-select-sm" style="width:auto;">
-                            <option value="direction">Direction</option>
-                            <option value="call_type">Call Type</option>
-                            <option value="top_callers">Top Callers</option>
-                            <option value="top_called">Top Called</option>
-                            <option value="trunk">Trunk Usage</option>
-                        </select>
-                    </div>
-                    <canvas id="breakdownChart" style="max-height: 250px; width: 100%;"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <!-- Filter Section -->
-        <div class="filter-section">
-            <form id="filterForm" class="row g-3 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Start Date</label>
-                    <input type="date" id="start_date" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">End Date</label>
-                    <input type="date" id="end_date" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Direction</label>
-                    <select id="direction" class="form-select">
-                        <option value="">All</option>
-                        <option value="Inbound">Inbound</option>
-                        <option value="Outbound">Outbound</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Call Type</label>
-                    <select id="is_internal" class="form-select">
-                        <option value="">All</option>
-                        <option value="internal">Internal</option>
-                        <option value="external">External</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Search</label>
-                    <input type="text" id="search" class="form-control" placeholder="Number, name...">
-                </div>
-                <div class="col-md-1">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-funnel"></i> Filter
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        <!-- Call Records Table -->
-        <div class="table-container">
+<!-- Dual Chart Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="chart-container">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-semibold mb-0"><i class="bi bi-list-ul me-2"></i>Recent Call Details</h5>
-                <div>
-                    <a href="{{ url_for('export.export_calls_csv', start_date=filters.start_date, end_date=filters.end_date, direction=filters.direction, is_internal=filters.is_internal, search=filters.search) }}" class="btn btn-outline-success btn-sm me-2">
-                        <i class="bi bi-filetype-csv"></i> CSV
-                    </a>
-                    <a href="{{ url_for('export.export_calls_pdf', start_date=filters.start_date, end_date=filters.end_date, direction=filters.direction, is_internal=filters.is_internal, search=filters.search) }}" class="btn btn-outline-danger btn-sm me-2">
-                        <i class="bi bi-filetype-pdf"></i> PDF
-                    </a>
-                    <button id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reset Filters
-                    </button>
+                <h5 class="fw-semibold mb-0"><i class="bi bi-bar-chart me-2"></i>Call Volume</h5>
+                <div class="d-flex">
+                    <select id="chartRange" class="form-select form-select-sm me-2" style="width:auto;">
+                        <option value="24h">Last 24h</option>
+                        <option value="7d" selected>Last 7d</option>
+                        <option value="30d">Last 30d</option>
+                        <option value="3m">Last 3m</option>
+                        <option value="1y">Last 1y</option>
+                    </select>
+                    <select id="chartInterval" class="form-select form-select-sm" style="width:auto;">
+                        <option value="hour">Hourly</option>
+                        <option value="day" selected>Daily</option>
+                        <option value="month">Monthly</option>
+                        <option value="year">Yearly</option>
+                    </select>
                 </div>
             </div>
-            <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
-                <table class="table table-hover align-middle">
-                    <thead>
-                        <tr>
-                            <th>Time</th>
-                            <th>Duration</th>
-                            <th>Ring</th>
-                            <th>Hold</th>
-                            <th>Caller</th>
-                            <th>Direction</th>
-                            <th>Called</th>
-                            <th>Type</th>
-                            <th>From (Party1)</th>
-                            <th>To (Party2)</th>
-                            <th>Call ID</th>
-                            <th>Cost</th>
-                        </tr>
-                    </thead>
-                    <tbody id="callsTableBody"></tbody>
-                </table>
-            </div>
+            <canvas id="dailyChart" style="max-height: 250px; width: 100%;"></canvas>
         </div>
     </div>
+    <div class="col-md-6">
+        <div class="chart-container">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-semibold mb-0"><i class="bi bi-pie-chart me-2"></i>Breakdown</h5>
+                <select id="breakdownType" class="form-select form-select-sm" style="width:auto;">
+                    <option value="direction">Direction</option>
+                    <option value="call_type">Call Type</option>
+                    <option value="top_callers">Top Callers</option>
+                    <option value="top_called">Top Called</option>
+                    <option value="trunk">Trunk Usage</option>
+                </select>
+            </div>
+            <canvas id="breakdownChart" style="max-height: 250px; width: 100%;"></canvas>
+        </div>
+    </div>
+</div>
 
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // ---------- Theme Toggle ----------
-        const themeToggle = document.getElementById('themeToggle');
-        const icon = themeToggle.querySelector('i');
-        function setTheme(mode) {
-            if (mode === 'dark') {
-                document.body.classList.add('dark');
-                icon.className = 'bi bi-sun';
-            } else {
-                document.body.classList.remove('dark');
-                icon.className = 'bi bi-moon-stars';
-            }
-            localStorage.setItem('theme', mode);
+<!-- Filter Section -->
+<div class="filter-section">
+    <form id="filterForm" class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">Start Date</label>
+            <input type="date" id="start_date" class="form-control">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">End Date</label>
+            <input type="date" id="end_date" class="form-control">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">Direction</label>
+            <select id="direction" class="form-select">
+                <option value="">All</option>
+                <option value="Inbound">Inbound</option>
+                <option value="Outbound">Outbound</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label fw-semibold">Call Type</label>
+            <select id="is_internal" class="form-select">
+                <option value="">All</option>
+                <option value="internal">Internal</option>
+                <option value="external">External</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label fw-semibold">Search</label>
+            <input type="text" id="search" class="form-control" placeholder="Number, name...">
+        </div>
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-funnel"></i> Filter</button>
+        </div>
+    </form>
+</div>
+
+<!-- Call Records Table -->
+<div class="table-container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-semibold mb-0"><i class="bi bi-list-ul me-2"></i>Recent Call Details</h5>
+        <div>
+            <a href="{{ url_for('export.export_calls_csv', start_date=filters.start_date, end_date=filters.end_date, direction=filters.direction, is_internal=filters.is_internal, search=filters.search) }}" class="btn btn-outline-success btn-sm me-2" target="_blank">
+                <i class="bi bi-filetype-csv"></i> CSV
+            </a>
+            <a href="{{ url_for('export.export_calls_pdf', start_date=filters.start_date, end_date=filters.end_date, direction=filters.direction, is_internal=filters.is_internal, search=filters.search) }}" class="btn btn-outline-danger btn-sm me-2" target="_blank">
+                <i class="bi bi-filetype-pdf"></i> PDF
+            </a>
+            <button id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset Filters
+            </button>
+        </div>
+    </div>
+    <div class="table-responsive" style="max-height: 60vh; overflow-y: auto;">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Time</th><th>Duration</th><th>Ring</th><th>Hold</th><th>Caller</th>
+                    <th>Direction</th><th>Called</th><th>Type</th><th>From (Party1)</th>
+                    <th>To (Party2)</th><th>Call ID</th><th>Cost</th>
+                </tr>
+            </thead>
+            <tbody id="callsTableBody"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // ---------- Skeleton helpers ----------
+    function skeletonCards() {
+        const accentColors = ['#2563eb','#8b5cf6','#f59e0b','#06b6d4','#e11d48','#ec4899'];
+        let html = '';
+        for (let i = 0; i < 6; i++) {
+            html += `<div class="col-sm-6 col-md-4 col-lg-2">
+                <div class="stat-card" style="border-left:6px solid ${accentColors[i]}20">
+                    <div class="skeleton" style="width:40%;height:14px;margin-bottom:8px;"></div>
+                    <div class="skeleton" style="width:70%;height:28px;"></div>
+                </div>
+            </div>`;
         }
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        setTheme(savedTheme);
-        themeToggle.addEventListener('click', () => {
-            const current = document.body.classList.contains('dark') ? 'dark' : 'light';
-            setTheme(current === 'dark' ? 'light' : 'dark');
-            loadBreakdownChart();
-        });
+        return html;
+    }
 
-        // ---------- Connection Status ----------
-        function updateConnectionStatus() {
-            fetch('/api/connection_status')
-                .then(res => res.json())
-                .then(data => {
-                    const bar = document.getElementById('connectionBar');
-                    const icon = document.getElementById('connIcon');
-                    const text = document.getElementById('connText');
-                    if (data.connected) {
-                        bar.style.display = 'flex';
-                        bar.className = 'alert alert-success mb-3 py-2 px-3 d-flex align-items-center';
-                        icon.className = 'bi bi-check-circle-fill me-2';
-                        text.innerHTML = `IP Office connected (${data.ip}) – last seen ${data.last_seen}`;
-                    } else {
-                        bar.style.display = 'flex';
-                        bar.className = 'alert alert-danger mb-3 py-2 px-3 d-flex align-items-center';
-                        icon.className = 'bi bi-exclamation-triangle-fill me-2';
-                        text.innerHTML = data.last_seen ?
-                            `No active connection. Last seen ${data.last_seen} from ${data.ip}` :
-                            'No connection to IP Office yet.';
-                    }
-                })
-                .catch(() => {
-                    const bar = document.getElementById('connectionBar');
+    function skeletonTable() {
+        let rows = '';
+        for (let i = 0; i < 8; i++) {
+            rows += `<tr>${'<td><div class="skeleton" style="height:16px;width:' + (Math.random()*40+40).toFixed(0) + '%;"></div></td>'.repeat(12)}</tr>`;
+        }
+        return rows;
+    }
+
+    // ---------- Connection Status ----------
+    function updateConnectionStatus() {
+        fetch('/api/connection_status')
+            .then(res => res.json())
+            .then(data => {
+                const bar = document.getElementById('connectionBar');
+                const connIcon = document.getElementById('connIcon');
+                const text = document.getElementById('connText');
+                if (data.connected) {
                     bar.style.display = 'flex';
-                    bar.className = 'alert alert-warning mb-3 py-2 px-3 d-flex align-items-center';
-                    document.getElementById('connIcon').className = 'bi bi-question-circle-fill me-2';
-                    document.getElementById('connText').innerText = 'Unable to check connection status.';
-                });
+                    bar.className = 'alert alert-success mb-3 py-2 px-3 d-flex align-items-center';
+                    connIcon.className = 'bi bi-check-circle-fill me-2';
+                    text.innerHTML = `IP Office connected (${data.ip}) – last seen ${data.last_seen}`;
+                } else {
+                    bar.style.display = 'flex';
+                    bar.className = 'alert alert-danger mb-3 py-2 px-3 d-flex align-items-center';
+                    connIcon.className = 'bi bi-exclamation-triangle-fill me-2';
+                    text.innerHTML = data.last_seen ? `No active connection. Last seen ${data.last_seen} from ${data.ip}` : 'No connection to IP Office yet.';
+                }
+            })
+            .catch(() => {
+                const bar = document.getElementById('connectionBar');
+                bar.style.display = 'flex';
+                bar.className = 'alert alert-warning mb-3 py-2 px-3 d-flex align-items-center';
+                document.getElementById('connIcon').className = 'bi bi-question-circle-fill me-2';
+                document.getElementById('connText').innerText = 'Unable to check connection status.';
+            });
+    }
+    updateConnectionStatus();
+    setInterval(updateConnectionStatus, 5000);
+
+    (function() {
+        const today = new Date().toISOString().split('T')[0];
+        if (!document.getElementById('start_date').value) {
+            document.getElementById('start_date').value = today;
+            document.getElementById('end_date').value = today;
         }
-        updateConnectionStatus();
-        setInterval(updateConnectionStatus, 5000);
+    })();
 
-        // ---------- Set today's date ----------
-        (function() {
-            const today = new Date().toISOString().split('T')[0];
-            if (!document.getElementById('start_date').value) {
-                document.getElementById('start_date').value = today;
-                document.getElementById('end_date').value = today;
-            }
-        })();
+    let currentPage = 1;
+    const PER_PAGE = 50;
 
-        // ---------- Pagination state ----------
-        let currentPage = 1;
-        const PER_PAGE = 50;
+    async function refreshDashboard(page = currentPage) {
+        // Show skeletons immediately
+        document.getElementById('summaryCards').innerHTML = skeletonCards();
+        document.getElementById('callsTableBody').innerHTML = skeletonTable();
 
-        // ---------- Dashboard data refresh (with pagination) ----------
-        async function refreshDashboard(page = currentPage) {
+        const filterBtn = document.querySelector('#filterForm button[type="submit"]');
+        const resetBtn = document.getElementById('resetFiltersBtn');
+        filterBtn.disabled = true; resetBtn.disabled = true;
+
+        try {
             const start = document.getElementById('start_date').value;
             const end = document.getElementById('end_date').value;
             const dir = document.getElementById('direction').value;
             const type = document.getElementById('is_internal').value;
             const q = document.getElementById('search').value;
-            const params = new URLSearchParams({
-                start_date: start,
-                end_date: end,
-                direction: dir,
-                is_internal: type,
-                search: q,
-                page: page,
-                per_page: PER_PAGE
-            });
-
+            const params = new URLSearchParams({ start_date: start, end_date: end, direction: dir, is_internal: type, search: q, page: page, per_page: PER_PAGE });
             const res = await fetch('/api/dashboard?' + params.toString());
             const data = await res.json();
             const s = data.summary;
-            document.getElementById('summaryCards').innerHTML = [
-                { label: 'Total Calls', value: s.total_calls, icon: 'bi-telephone', accent: '#2563eb' },
-                { label: 'Talk Time', value: s.total_duration, icon: 'bi-hourglass-split', accent: '#8b5cf6' },
-                { label: 'Avg. Duration', value: s.avg_duration, icon: 'bi-clock', accent: '#f59e0b' },
-                { label: 'Total Ring', value: s.total_ring, icon: 'bi-bell', accent: '#06b6d4' },
-                { label: 'Total Hold', value: s.total_hold, icon: 'bi-pause-circle', accent: '#e11d48' },
-                { label: 'Total Cost', value: '$' + s.total_cost.toFixed(2), icon: 'bi-currency-dollar', accent: '#ec4899' }
-            ].map(c => `<div class="col-sm-6 col-md-4 col-lg-2">
-                <div class="stat-card fade-in" style="--accent: ${c.accent};">
-                    <div class="stat-label mb-2"><i class="bi ${c.icon} me-1"></i>${c.label}</div>
-                    <div class="stat-value">${c.value}</div>
-                </div>
-            </div>`).join('');
+
+            // Gradient cards with icons
+            const cardColors = [
+                { label: 'Total Calls', value: s.total_calls, icon: 'bi-telephone', accent: '#2563eb', gradient: 'linear-gradient(135deg, #2563eb15, #2563eb05)' },
+                { label: 'Talk Time', value: s.total_duration, icon: 'bi-hourglass-split', accent: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf615, #8b5cf605)' },
+                { label: 'Avg. Duration', value: s.avg_duration, icon: 'bi-clock', accent: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b15, #f59e0b05)' },
+                { label: 'Total Ring', value: s.total_ring, icon: 'bi-bell', accent: '#06b6d4', gradient: 'linear-gradient(135deg, #06b6d415, #06b6d405)' },
+                { label: 'Total Hold', value: s.total_hold, icon: 'bi-pause-circle', accent: '#e11d48', gradient: 'linear-gradient(135deg, #e11d4815, #e11d4805)' },
+                { label: 'Total Cost', value: '$' + s.total_cost.toFixed(2), icon: 'bi-currency-dollar', accent: '#ec4899', gradient: 'linear-gradient(135deg, #ec489915, #ec489905)' }
+            ];
+            document.getElementById('summaryCards').innerHTML = cardColors.map(c =>
+                `<div class="col-sm-6 col-md-4 col-lg-2">
+                    <div class="stat-card fade-in" style="--accent: ${c.accent}; background: ${c.gradient};">
+                        <div class="stat-label mb-2"><i class="bi ${c.icon} me-1"></i>${c.label}</div>
+                        <div class="stat-value">${c.value}</div>
+                    </div>
+                </div>`
+            ).join('');
 
             const calls = data.calls;
             const tbody = document.getElementById('callsTableBody');
             if (!calls || calls.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="12" class="text-center py-5">No records found for the selected period.</td></tr>';
-                return;
-            }
-
-            // Build call rows – now includes Call ID before Cost
-            let rowsHtml = calls.map(call => `
-                <tr data-call-id="${call.call_id || ''}" data-row-id="${call.id}" style="cursor:pointer">
-                    <td><span class="text-nowrap">${call.call_start || '—'}</span></td>
-                    <td>${call.duration_raw || ''}</td>
-                    <td>${call.ring_time || 0}s</td>
-                    <td>${call.hold_time || 0}s</td>
-                    <td>${call.caller || ''}</td>
-                    <td><span class="badge ${call.direction === 'Inbound' ? 'bg-success' : 'bg-primary'} px-3 py-2">${call.direction || ''}</span></td>
-                    <td>${call.called_num || ''}</td>
-                    <td><span class="badge ${call.is_internal ? 'bg-secondary' : 'bg-info text-dark'}">${call.is_internal ? 'Internal' : 'External'}</span></td>
-                    <td><strong>${call.party1_name || ''}</strong></td>
-                    <td>${call.party2_name || ''}</td>
-                    <td>${call.call_id || '—'}</td>
-                    <td>$${call.cost.toFixed(2)}</td>
-                </tr>
-            `).join('');
-
-            // Build pagination row (colspan updated to 12)
-            const pag = data.pagination;
-            let paginationHtml = '';
-            if (pag.total_pages > 1) {
-                paginationHtml = `<tr>
-                    <td colspan="12" class="text-center">
-                        <div class="btn-group btn-group-sm">
-                            <button class="btn btn-outline-secondary" id="prevBtn" ${pag.page <= 1 ? 'disabled' : ''}>
-                                <i class="bi bi-chevron-left"></i> Previous
-                            </button>
-                            <span class="btn btn-outline-secondary disabled">
-                                Page ${pag.page} of ${pag.total_pages} (${pag.total} calls)
-                            </span>
-                            <button class="btn btn-outline-secondary" id="nextBtn" ${pag.page >= pag.total_pages ? 'disabled' : ''}>
-                                Next <i class="bi bi-chevron-right"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>`;
-            }
-            tbody.innerHTML = rowsHtml + paginationHtml;
-            currentPage = pag.page;
-
-            const prevBtn = document.getElementById('prevBtn');
-            const nextBtn = document.getElementById('nextBtn');
-            if (prevBtn) {
-                prevBtn.addEventListener('click', () => {
-                    if (currentPage > 1) refreshDashboard(currentPage - 1);
-                });
-            }
-            if (nextBtn) {
-                nextBtn.addEventListener('click', () => {
-                    if (currentPage < pag.total_pages) refreshDashboard(currentPage + 1);
-                });
+                tbody.innerHTML = `<tr><td colspan="12" class="text-center py-5"><div class="mb-2"><i class="bi bi-inbox fs-1 text-muted"></i></div><h6 class="text-muted">No calls match your current filters</h6><button class="btn btn-sm btn-outline-primary mt-2" onclick="document.getElementById('resetFiltersBtn').click()"><i class="bi bi-arrow-counterclockwise me-1"></i> Reset Filters</button></td></tr>`;
+            } else {
+                let rowsHtml = calls.map(call => `
+                    <tr data-call-id="${call.call_id || ''}" data-row-id="${call.id}" style="cursor:pointer">
+                        <td><span class="text-nowrap">${call.call_start || '—'}</span></td>
+                        <td>${call.duration_raw || ''}</td><td>${call.ring_time || 0}s</td><td>${call.hold_time || 0}s</td>
+                        <td>${call.caller || ''}</td>
+                        <td><span class="badge ${call.direction === 'Inbound' ? 'bg-success' : 'bg-primary'} px-3 py-2">${call.direction || ''}</span></td>
+                        <td>${call.called_num || ''}</td>
+                        <td><span class="badge ${call.is_internal ? 'bg-secondary' : 'bg-info text-dark'}">${call.is_internal ? 'Internal' : 'External'}</span></td>
+                        <td><strong>${call.party1_name || ''}</strong></td><td>${call.party2_name || ''}</td>
+                        <td>${call.call_id || '—'}</td><td>$${call.cost.toFixed(2)}</td>
+                    </tr>`).join('');
+                const pag = data.pagination;
+                let paginationHtml = '';
+                if (pag.total_pages > 1) {
+                    paginationHtml = `<tr><td colspan="12" class="text-center"><div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" id="prevBtn" ${pag.page <= 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i> Previous</button>
+                        <span class="btn btn-outline-secondary disabled">Page ${pag.page} of ${pag.total_pages} (${pag.total} calls)</span>
+                        <button class="btn btn-outline-secondary" id="nextBtn" ${pag.page >= pag.total_pages ? 'disabled' : ''}>Next <i class="bi bi-chevron-right"></i></button>
+                    </div></td></tr>`;
+                }
+                tbody.innerHTML = rowsHtml + paginationHtml;
+                currentPage = pag.page;
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                if (prevBtn) prevBtn.addEventListener('click', () => { if (currentPage > 1) refreshDashboard(currentPage - 1); });
+                if (nextBtn) nextBtn.addEventListener('click', () => { if (currentPage < pag.total_pages) refreshDashboard(currentPage + 1); });
             }
             updateExportLinks();
+        } catch (err) {
+            document.getElementById('callsTableBody').innerHTML = `<tr><td colspan="12" class="text-center py-5 text-danger">Unable to load data. Please try again.</td></tr>`;
+        } finally {
+            filterBtn.disabled = false; resetBtn.disabled = false;
         }
+    }
 
-        // ---------- Double‑click to open Call Journey (popup) ----------
-            document.getElementById('callsTableBody').addEventListener('dblclick', (e) => {
-                const row = e.target.closest('tr[data-call-id]');
-                if (row) {
-                    const callId = row.getAttribute('data-call-id');
-                    const rowId = row.getAttribute('data-row-id');
-                    if (callId) {
-                        let url = `/report/call_journey?call_id=${callId}&popup=1&diagram=1`;
-                        if (rowId) url += `&row_id=${rowId}`;
-                        window.open(url, 'callJourneyPopup', 'width=1000,height=700,scrollbars=yes,resizable=yes');
-                    }
+    document.getElementById('callsTableBody').addEventListener('dblclick', (e) => {
+        const row = e.target.closest('tr[data-call-id]');
+        if (row) {
+            const callId = row.getAttribute('data-call-id');
+            const rowId = row.getAttribute('data-row-id');
+            if (callId) {
+                let url = `/report/call_journey?call_id=${callId}&popup=1&diagram=1`;
+                if (rowId) url += `&row_id=${rowId}`;
+                window.open(url, 'callJourneyPopup', 'width=1000,height=700,scrollbars=yes,resizable=yes');
+            }
+        }
+    });
+
+    function updateExportLinks() {
+        const start = document.getElementById('start_date').value;
+        const end = document.getElementById('end_date').value;
+        const dir = document.getElementById('direction').value;
+        const type = document.getElementById('is_internal').value;
+        const q = document.getElementById('search').value;
+        const params = new URLSearchParams({ start_date: start, end_date: end, direction: dir, is_internal: type, search: q });
+        const csvLink = document.querySelector('a[href*="/export/calls/csv"]');
+        const pdfLink = document.querySelector('a[href*="/export/calls/pdf"]');
+        if (csvLink) csvLink.href = '/export/calls/csv?' + params.toString();
+        if (pdfLink) pdfLink.href = '/export/calls/pdf?' + params.toString();
+    }
+
+    // ---------- Call Volume Chart with gradient fill ----------
+    let dailyChart;
+    async function loadChart() {
+        const range = document.getElementById('chartRange').value;
+        const interval = document.getElementById('chartInterval').value;
+        const params = new URLSearchParams({ range, interval });
+        const res = await fetch('/api/call_volume?' + params.toString());
+        const data = await res.json();
+        const labels = data.map(d => d.period);
+        const counts = data.map(d => d.count);
+        const ctx = document.getElementById('dailyChart').getContext('2d');
+        if (dailyChart) dailyChart.destroy();
+
+        // Create gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+        gradient.addColorStop(0, '#3b82f6');
+        gradient.addColorStop(1, '#8b5cf680');
+
+        let xTitle = 'Period';
+        if (interval === 'hour') xTitle = 'Hour'; else if (interval === 'day') xTitle = 'Date';
+        else if (interval === 'month') xTitle = 'Month'; else if (interval === 'year') xTitle = 'Year';
+
+        dailyChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels, datasets: [{ label: 'Calls', data: counts, backgroundColor: gradient, borderRadius: 8, barPercentage: 0.6 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'Number of Calls' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                    x: { title: { display: true, text: xTitle }, grid: { display: false } }
                 }
-            });
+            }
+        });
+    }
+    document.getElementById('chartRange').addEventListener('change', function() {
+        const range = this.value;
+        const intervalSelect = document.getElementById('chartInterval');
+        if (range === '24h') intervalSelect.value = 'hour';
+        else if (range === '7d' || range === '30d') intervalSelect.value = 'day';
+        else if (range === '3m') intervalSelect.value = 'month';
+        else if (range === '1y') intervalSelect.value = 'month';
+        loadChart();
+    });
+    document.getElementById('chartInterval').addEventListener('change', loadChart);
 
-        function updateExportLinks() {
-            const start = document.getElementById('start_date').value;
-            const end = document.getElementById('end_date').value;
-            const dir = document.getElementById('direction').value;
-            const type = document.getElementById('is_internal').value;
-            const q = document.getElementById('search').value;
-
-            const params = new URLSearchParams({
-                start_date: start,
-                end_date: end,
-                direction: dir,
-                is_internal: type,
-                search: q
-            });
-
-            const csvBase = "/export/calls/csv";
-            const pdfBase = "/export/calls/pdf";
-            const csvLink = document.querySelector('.btn-outline-success[href*="/export/calls/csv"]');
-            const pdfLink = document.querySelector('.btn-outline-danger[href*="/export/calls/pdf"]');
-
-            if (csvLink) csvLink.href = csvBase + '?' + params.toString();
-            if (pdfLink) pdfLink.href = pdfBase + '?' + params.toString();
-        }
-
-        // ---------- Call Volume Chart ----------
-        let dailyChart;
-        async function loadChart() {
-            const range = document.getElementById('chartRange').value;
-            const interval = document.getElementById('chartInterval').value;
-            const params = new URLSearchParams({ range, interval });
-            const res = await fetch('/api/call_volume?' + params.toString());
-            const data = await res.json();
-
-            const labels = data.map(d => d.period);
-            const counts = data.map(d => d.count);
-            const ctx = document.getElementById('dailyChart').getContext('2d');
-            if (dailyChart) dailyChart.destroy();
-
-            let xTitle = 'Period';
-            if (interval === 'hour') xTitle = 'Hour';
-            else if (interval === 'day') xTitle = 'Date';
-            else if (interval === 'month') xTitle = 'Month';
-            else if (interval === 'year') xTitle = 'Year';
-
-            dailyChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Calls',
-                        data: counts,
-                        backgroundColor: '#3b82f6',
-                        borderRadius: 8,
-                        barPercentage: 0.6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        y: { beginAtZero: true, title: { display: true, text: 'Number of Calls' }, grid: { color: 'rgba(0,0,0,0.05)' } },
-                        x: { title: { display: true, text: xTitle }, grid: { display: false } }
-                    }
+    // ---------- Breakdown Doughnut Chart ----------
+    let breakdownChart;
+    async function loadBreakdownChart() {
+        const type = document.getElementById('breakdownType').value;
+        const start = document.getElementById('start_date').value;
+        const end = document.getElementById('end_date').value;
+        const dir = document.getElementById('direction').value;
+        const intType = document.getElementById('is_internal').value;
+        const q = document.getElementById('search').value;
+        const params = new URLSearchParams({ type, start_date: start, end_date: end, direction: dir, is_internal: intType, search: q });
+        const res = await fetch('/api/breakdown?' + params.toString());
+        const json = await res.json();
+        const data = json.data;
+        const labels = data.map(d => d.label);
+        const counts = data.map(d => d.count);
+        const ctx = document.getElementById('breakdownChart').getContext('2d');
+        if (breakdownChart) breakdownChart.destroy();
+        const isDark = document.body.classList.contains('dark');
+        const textColor = isDark ? '#f1f5f9' : '#1e293b';
+        const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316','#6366f1','#14b8a6'];
+        breakdownChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data: counts, backgroundColor: colors.slice(0, labels.length), borderColor: '#ffffff', borderWidth: 2 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: textColor, padding: 15, usePointStyle: true, font: { size: 12 } } },
+                    tooltip: { callbacks: { label: function(ctx) { const total = ctx.dataset.data.reduce((a,b)=>a+b,0); return ctx.label + ': ' + ctx.raw + ' (' + ((ctx.raw / total)*100).toFixed(1) + '%)'; } } }
                 }
-            });
-        }
-
-        document.getElementById('chartRange').addEventListener('change', function() {
-            const range = this.value;
-            const intervalSelect = document.getElementById('chartInterval');
-            if (range === '24h') intervalSelect.value = 'hour';
-            else if (range === '7d' || range === '30d') intervalSelect.value = 'day';
-            else if (range === '3m') intervalSelect.value = 'month';
-            else if (range === '1y') intervalSelect.value = 'month';
-            loadChart();
+            }
         });
-        document.getElementById('chartInterval').addEventListener('change', loadChart);
+    }
+    document.getElementById('breakdownType').addEventListener('change', loadBreakdownChart);
+    document.getElementById('themeToggle').addEventListener('click', loadBreakdownChart);
 
-        // ---------- Breakdown Doughnut Chart ----------
-        let breakdownChart;
-        async function loadBreakdownChart() {
-            const type = document.getElementById('breakdownType').value;
-            const start = document.getElementById('start_date').value;
-            const end = document.getElementById('end_date').value;
-            const dir = document.getElementById('direction').value;
-            const intType = document.getElementById('is_internal').value;
-            const q = document.getElementById('search').value;
+    // ---------- Filter & Reset ----------
+    document.getElementById('filterForm').addEventListener('submit', (e) => { e.preventDefault(); currentPage = 1; refreshDashboard(1); loadBreakdownChart(); });
+    document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+        document.getElementById('start_date').value = '';
+        document.getElementById('end_date').value = '';
+        document.getElementById('direction').value = '';
+        document.getElementById('is_internal').value = '';
+        document.getElementById('search').value = '';
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('start_date').value = today;
+        document.getElementById('end_date').value = today;
+        currentPage = 1;
+        refreshDashboard(1);
+        loadBreakdownChart();
+    });
 
-            const params = new URLSearchParams({
-                type: type,
-                start_date: start,
-                end_date: end,
-                direction: dir,
-                is_internal: intType,
-                search: q
-            });
-            const res = await fetch('/api/breakdown?' + params.toString());
-            const json = await res.json();
-            const data = json.data;
+    (async () => { await refreshDashboard(1); loadChart(); loadBreakdownChart(); })();
 
-            const labels = data.map(d => d.label);
-            const counts = data.map(d => d.count);
-            const ctx = document.getElementById('breakdownChart').getContext('2d');
-
-            if (breakdownChart) breakdownChart.destroy();
-
-            const isDark = document.body.classList.contains('dark');
-            const textColor = isDark ? '#f1f5f9' : '#1e293b';
-
-            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6'];
-            breakdownChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: counts,
-                        backgroundColor: colors.slice(0, labels.length),
-                        borderColor: '#ffffff',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: textColor,
-                                padding: 15,
-                                usePointStyle: true,
-                                font: { size: 12 }
-                            }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(ctx) {
-                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
-                                    const percent = ((ctx.raw / total) * 100).toFixed(1);
-                                    return `${ctx.label}: ${ctx.raw} (${percent}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        document.getElementById('breakdownType').addEventListener('change', loadBreakdownChart);
-
-        // ---------- Filter & Reset ----------
-        document.getElementById('filterForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            currentPage = 1;
-            refreshDashboard(1);
-            loadBreakdownChart();
-        });
-        document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-            document.getElementById('start_date').value = '';
-            document.getElementById('end_date').value = '';
-            document.getElementById('direction').value = '';
-            document.getElementById('is_internal').value = '';
-            document.getElementById('search').value = '';
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('start_date').value = today;
-            document.getElementById('end_date').value = today;
-            currentPage = 1;
-            refreshDashboard(1);
-            loadBreakdownChart();
-        });
-
-        // Initial load
-        (async () => {
-            await refreshDashboard(1);
-            loadChart();
-            loadBreakdownChart();
-        })();
-
-        // Auto-refresh
-        setInterval(() => refreshDashboard(currentPage), 10000);
-        setInterval(loadBreakdownChart, 30000);
-    </script>
-</body>
-</html>
+    setInterval(() => refreshDashboard(currentPage), 10000);
+    setInterval(loadBreakdownChart, 30000);
+</script>
+{% endblock %}

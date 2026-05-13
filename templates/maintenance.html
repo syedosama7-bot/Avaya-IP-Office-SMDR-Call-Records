@@ -1,140 +1,121 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Maintenance - Avaya CDR</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-</head>
-<body class="bg-light">
-    <div class="container py-4">
-        <h2 class="mb-4"><i class="bi bi-tools"></i> System Maintenance</h2>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endwith %}
+{% extends "base.html" %}
+{% block title %}Maintenance{% endblock %}
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-tools"></i> System Maintenance</h2>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">{{ message }}</div>
+    {% endfor %}
+{% endwith %}
 
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header">Database Backup & Restore</div>
-                    <div class="card-body">
-                        <p><strong>Current Database:</strong> {{ db_size_mb }} MB | Last modified: {{ db_mtime }}</p>
-                        <form method="POST" class="mb-3">
-                            <input type="hidden" name="action" value="backup_db">
-                            <button type="submit" class="btn btn-success"><i class="bi bi-download"></i> Download Database Backup</button>
-                        </form>
-                        <form method="POST" enctype="multipart/form-data">
-                            <input type="hidden" name="action" value="restore_db">
-                            <div class="mb-3">
-                                <label for="db_file" class="form-label">Upload Database File (.db)</label>
-                                <input type="file" name="db_file" id="db_file" class="form-control" accept=".db" required>
-                            </div>
-                            <button type="submit" class="btn btn-danger" onclick="return confirm('Restoring will overwrite the current database. A restart will be required. Continue?')">
-                                <i class="bi bi-upload"></i> Restore Database
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card mb-4">
-                    <div class="card-header">Configuration Backup & Restore</div>
-                    <div class="card-body">
-                        <form method="POST" class="mb-3">
-                            <input type="hidden" name="action" value="backup_config">
-                            <button type="submit" class="btn btn-success"><i class="bi bi-download"></i> Download Configuration Backup</button>
-                        </form>
-                        <form method="POST" enctype="multipart/form-data">
-                            <input type="hidden" name="action" value="restore_config">
-                            <div class="mb-3">
-                                <label for="config_file" class="form-label">Upload Configuration File (.json)</label>
-                                <input type="file" name="config_file" id="config_file" class="form-control" accept=".json" required>
-                            </div>
-                            <button type="submit" class="btn btn-warning" onclick="return confirm('Restoring configuration will overwrite current settings, tariffs, and users. Proceed?')">
-                                <i class="bi bi-upload"></i> Restore Configuration
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Backup Scheduler Management -->
+<div class="row">
+    <div class="col-md-6">
         <div class="card mb-4">
-            <div class="card-header">Backup Scheduler</div>
+            <div class="card-header">Database Backup & Restore</div>
             <div class="card-body">
-                <form method="POST">
-                    <input type="hidden" name="action" value="update_backup_schedule">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="backup_path" class="form-label">Backup Directory (empty = disable auto backup)</label>
-                            <input type="text" name="backup_path" id="backup_path" class="form-control" value="{{ backup_path }}">
-                        </div>
-                        <div class="col-md-3">
-                            <label for="backup_interval_hours" class="form-label">Interval (hours)</label>
-                            <input type="number" name="backup_interval_hours" id="backup_interval_hours" class="form-control" value="{{ backup_interval }}" min="1" step="1">
-                        </div>
-                        <div class="col-md-3 d-flex align-items-end">
-                            <span class="text-muted small">24=daily, 168=weekly, 720=monthly</span>
-                        </div>
+                <p><strong>Current Database:</strong> {{ db_size_mb }} MB | Last modified: {{ db_mtime }}</p>
+                <form method="POST" class="mb-3">
+                    <input type="hidden" name="action" value="backup_db">
+                    <button type="submit" class="btn btn-success"><i class="bi bi-download"></i> Download Database Backup</button>
+                </form>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="restore_db">
+                    <div class="mb-3">
+                        <label for="db_file" class="form-label">Upload Database File (.db)</label>
+                        <input type="file" name="db_file" id="db_file" class="form-control" accept=".db" required>
                     </div>
-                    <button type="submit" class="btn btn-primary mt-3">Save Backup Schedule</button>
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Restoring will overwrite the current database. A restart will be required. Continue?')"><i class="bi bi-upload"></i> Restore Database</button>
                 </form>
-
-                <hr>
-                <h5>Last Automatic Backup</h5>
-                {% if last_backup_time %}
-                    <p><strong>Time:</strong> {{ last_backup_time }}</p>
-                    <p><strong>Status:</strong> <span class="badge {{ 'bg-success' if 'Success' in last_backup_status else 'bg-danger' }}">{{ last_backup_status }}</span></p>
-                {% else %}
-                    <p>No automatic backup has run yet.</p>
-                {% endif %}
-                <p class="text-muted small">The scheduler runs in the background. Changes to the schedule will be picked up at the next cycle (max 1 hour).</p>
-            </div>
-        </div>
-
-        <!-- System Logs -->
-        <div class="card mb-4">
-            <div class="card-header">System Logs</div>
-            <div class="card-body">
-                <p><strong>Log file:</strong> {{ log_path }}</p>
-                <p><strong>Size:</strong> {{ log_size_kb }} KB</p>
-                <form method="POST" class="d-inline">
-                    <input type="hidden" name="action" value="view_log">
-                    <button type="submit" class="btn btn-info btn-sm"><i class="bi bi-eye"></i> View Last {{ log_lines }} Lines</button>
-                </form>
-                <form method="POST" class="d-inline ms-2">
-                    <input type="hidden" name="action" value="download_log">
-                    <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Download Log</button>
-                </form>
-                {% if log_content %}
-                <hr>
-                <h6>Last {{ log_lines }} lines of log:</h6>
-                <pre class="bg-dark text-light p-3" style="max-height: 400px; overflow-y: auto;">{{ log_content }}</pre>
-                {% endif %}
-            </div>
-        </div>
-
-        <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary">Back to Dashboard</a>
-                <!-- System Information -->
-        <div class="card mb-4">
-            <div class="card-header">System Information</div>
-            <div class="card-body">
-                <p><strong>Uptime:</strong> {{ uptime_str }}</p>
-                <div class="d-flex">
-                    <a href="{{ url_for('auth.active_sessions') }}" class="btn btn-info me-2">
-                        <i class="bi bi-people"></i> Active Sessions
-                    </a>
-                    <form method="GET" action="{{ url_for('auth.restart_app') }}" onsubmit="return confirm('Are you sure you want to restart the application? This will disconnect all users.');">
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-arrow-clockwise"></i> Restart Application
-                        </button>
-                    </form>
-                </div>
             </div>
         </div>
     </div>
-</body>
-</html>
+    <div class="col-md-6">
+        <div class="card mb-4">
+            <div class="card-header">Configuration Backup & Restore</div>
+            <div class="card-body">
+                <form method="POST" class="mb-3">
+                    <input type="hidden" name="action" value="backup_config">
+                    <button type="submit" class="btn btn-success"><i class="bi bi-download"></i> Download Configuration Backup</button>
+                </form>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="restore_config">
+                    <div class="mb-3">
+                        <label for="config_file" class="form-label">Upload Configuration File (.json)</label>
+                        <input type="file" name="config_file" id="config_file" class="form-control" accept=".json" required>
+                    </div>
+                    <button type="submit" class="btn btn-warning" onclick="return confirm('Restoring configuration will overwrite current settings, tariffs, and users. Proceed?')"><i class="bi bi-upload"></i> Restore Configuration</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Scheduler -->
+<div class="card mb-4">
+    <div class="card-header">Backup Scheduler</div>
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="update_backup_schedule">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="backup_path" class="form-label">Backup Directory (empty = disable auto backup)</label>
+                    <input type="text" name="backup_path" id="backup_path" class="form-control" value="{{ backup_path }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="backup_interval_hours" class="form-label">Interval (hours)</label>
+                    <input type="number" name="backup_interval_hours" id="backup_interval_hours" class="form-control" value="{{ backup_interval }}" min="1" step="1">
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <span class="text-muted small">24=daily, 168=weekly, 720=monthly</span>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Save Backup Schedule</button>
+        </form>
+        <hr>
+        <h5>Last Automatic Backup</h5>
+        {% if last_backup_time %}
+            <p><strong>Time:</strong> {{ last_backup_time }}</p>
+            <p><strong>Status:</strong> <span class="badge {{ 'bg-success' if 'Success' in last_backup_status else 'bg-danger' }}">{{ last_backup_status }}</span></p>
+        {% else %}
+            <p>No automatic backup has run yet.</p>
+        {% endif %}
+        <p class="text-muted small">The scheduler runs in the background. Changes to the schedule will be picked up at the next cycle (max 1 hour).</p>
+    </div>
+</div>
+
+<!-- System Logs -->
+<div class="card mb-4">
+    <div class="card-header">System Logs</div>
+    <div class="card-body">
+        <p><strong>Log file:</strong> {{ log_path }}</p>
+        <p><strong>Size:</strong> {{ log_size_kb }} KB</p>
+        <form method="POST" class="d-inline">
+            <input type="hidden" name="action" value="view_log">
+            <button type="submit" class="btn btn-info btn-sm"><i class="bi bi-eye"></i> View Last {{ log_lines }} Lines</button>
+        </form>
+        <form method="POST" class="d-inline ms-2">
+            <input type="hidden" name="action" value="download_log">
+            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-download"></i> Download Log</button>
+        </form>
+        {% if log_content %}
+        <hr>
+        <h6>Last {{ log_lines }} lines of log:</h6>
+        <pre class="bg-dark text-light p-3" style="max-height: 400px; overflow-y: auto;">{{ log_content }}</pre>
+        {% endif %}
+    </div>
+</div>
+
+<!-- System Information -->
+<div class="card mb-4">
+    <div class="card-header">System Information</div>
+    <div class="card-body">
+        <p><strong>Uptime:</strong> {{ uptime_str }}</p>
+        <div class="d-flex">
+            <a href="{{ url_for('auth.active_sessions') }}" class="btn btn-info me-2"><i class="bi bi-people"></i> Active Sessions</a>
+            <form method="GET" action="{{ url_for('auth.restart_app') }}" onsubmit="return confirm('Are you sure you want to restart the application? This will disconnect all users.');">
+                <button type="submit" class="btn btn-danger"><i class="bi bi-arrow-clockwise"></i> Restart Application</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

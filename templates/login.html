@@ -5,32 +5,173 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Avaya CDR</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background: linear-gradient(135deg, #2563eb, #7c3aed); height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .login-card { background: white; border-radius: 20px; padding: 2rem; width: 100%; max-width: 400px; box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+            --card-bg: rgba(255,255,255,0.92);
+            --text-color: #1e293b;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated background circles */
+        .bg-circle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.08;
+            animation: float 20s infinite ease-in-out;
+        }
+        .bg-circle:nth-child(1) { width: 400px; height: 400px; top: -100px; left: -100px; background: #3b82f6; animation-delay: 0s; }
+        .bg-circle:nth-child(2) { width: 300px; height: 300px; bottom: -50px; right: -50px; background: #7c3aed; animation-delay: -7s; }
+        .bg-circle:nth-child(3) { width: 200px; height: 200px; top: 50%; left: 60%; background: #2563eb; animation-delay: -14s; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-30px) scale(1.05); }
+        }
+
+        /* Glass card */
+        .login-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 28px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.15);
+            padding: 2.5rem 2rem;
+            width: 100%;
+            max-width: 440px;
+            position: relative;
+            z-index: 1;
+            animation: slideUp 0.6s ease;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-card .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            margin-bottom: 1.5rem;
+        }
+        .login-card .logo i {
+            font-size: 2.2rem;
+            color: #2563eb;
+            background: #eff6ff;
+            width: 56px; height: 56px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .login-card .logo span {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .login-card h5 {
+            font-weight: 500;
+            color: #64748b;
+            margin-bottom: 1.8rem;
+        }
+
+        .form-control {
+            border-radius: 12px;
+            padding: 0.7rem 1rem;
+            border: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+        }
+        .form-control:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+        }
+        .input-group-text {
+            border-radius: 12px 0 0 12px;
+            border-color: #e2e8f0;
+            background: #f8fafc;
+        }
+        .btn-primary {
+            background: #2563eb;
+            border: none;
+            border-radius: 12px;
+            padding: 0.7rem;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        .btn-primary:hover { background: #1d4ed8; }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
     </style>
 </head>
 <body>
+    <!-- Floating background shapes -->
+    <div class="bg-circle"></div>
+    <div class="bg-circle"></div>
+    <div class="bg-circle"></div>
+
     <div class="login-card">
-        <h3 class="text-center mb-4"><i class="bi bi-shield-lock me-2"></i>Login</h3>
+        <div class="logo">
+            <i class="bi bi-telephone-inbound"></i>
+            <span>Avaya CDR</span>
+        </div>
+        <h5 class="text-center">Sign in to your dashboard</h5>
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                    <div class="alert alert-{{ category }} alert-dismissible fade show py-2" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
+
         <form method="POST">
             <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" name="username" id="username" class="form-control" required>
+                <label for="username" class="form-label fw-semibold">Username</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                    <input type="text" name="username" id="username" class="form-control" placeholder="Enter your username" required>
+                </div>
             </div>
             <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" name="password" id="password" class="form-control" required>
+                <label for="password" class="form-label fw-semibold">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    <input type="password" name="password" id="password" class="form-control" placeholder="Enter your password" required>
+                </div>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Sign In</button>
+            <button type="submit" class="btn btn-primary w-100 mt-2">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Sign In
+            </button>
         </form>
+
+        <div class="footer-note">
+            <i class="bi bi-shield-check"></i> Secure · Private · Your Telecom Hub
+        </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

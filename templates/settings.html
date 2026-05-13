@@ -1,107 +1,302 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Settings - Avaya CDR</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-</head>
-<body class="bg-light">
-    <div class="container py-4">
-        <h2 class="mb-4"><i class="bi bi-gear-fill me-2"></i>System Settings</h2>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endwith %}
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0"><i class="bi bi-gear-fill me-2"></i>System Settings</h2>
+</div>
 
-        <!-- SMDR Listener & Web Interface -->
-        <div class="card mb-4">
-            <div class="card-header">SMDR Listener</div>
-            <div class="card-body">
-                <form method="POST">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="smdr_ip" class="form-label">IP Address</label>
-                            <input type="text" name="smdr_ip" id="smdr_ip" class="form-control" value="{{ settings['smdr_ip'] }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="smdr_port" class="form-label">Port</label>
-                            <input type="number" name="smdr_port" id="smdr_port" class="form-control" value="{{ settings['smdr_port'] }}" min="1" max="65535">
-                        </div>
-                    </div>
-                    <hr>
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="web_host" class="form-label">Web Interface Host</label>
-                            <input type="text" name="web_host" id="web_host" class="form-control" value="{{ settings['web_host'] }}">
-                        </div>
-                        <div class="col-md-6">
-                            <label for="web_port" class="form-label">Web Interface Port</label>
-                            <input type="number" name="web_port" id="web_port" class="form-control" value="{{ settings['web_port'] }}" min="1" max="65535">
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-primary mt-3">Save Settings</button>
-                    <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
-                </form>
-                <div class="alert alert-info mt-3">
-                    <i class="bi bi-info-circle"></i> After saving, you must restart the application for the new settings to take effect.
-                </div>
-            </div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
+    {% endfor %}
+{% endwith %}
 
-        <!-- PABX Server Management -->
-        <div class="card mb-4">
-            <div class="card-header">PABX Servers (Allowed IPs)</div>
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('auth.add_pabx') }}" class="row g-3 mb-4">
-                    <div class="col-md-4">
-                        <input type="text" name="pabx_name" class="form-control" placeholder="Server Name" required>
-                    </div>
-                    <div class="col-md-4">
-                        <input type="text" name="pabx_ip" class="form-control" placeholder="IP Address" required>
-                    </div>
-<!-- Inside the PABX Servers card, before the closing </div> of card-body -->
-            <div class="row g-3 mb-4">
-                <div class="col-md-4">
-                    <label for="pabx_timeout" class="form-label">Online Timeout (minutes)</label>
-                    <input type="number" name="pabx_online_timeout_minutes" id="pabx_timeout" class="form-control" value="{{ settings['pabx_online_timeout_minutes'] }}" min="1" max="1440">
+<!-- ============ LISTENER & WEB INTERFACE ============ -->
+<div class="card mb-4">
+    <div class="card-header bg-primary text-white">
+        <i class="bi bi-router me-2"></i> SMDR Listener & Web Interface
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="smdr_ip" class="form-label fw-semibold">Listener IP Address</label>
+                    <input type="text" name="smdr_ip" id="smdr_ip" class="form-control" value="{{ settings['smdr_ip'] }}">
+                    <small class="text-muted">IP address on which the SMDR TCP server listens (0.0.0.0 for all interfaces).</small>
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <button type="submit" formaction="{{ url_for('auth.settings') }}" class="btn btn-primary">Save Timeout</button>
+                <div class="col-md-3">
+                    <label for="smdr_port" class="form-label fw-semibold">Listener Port</label>
+                    <input type="number" name="smdr_port" id="smdr_port" class="form-control" value="{{ settings['smdr_port'] }}" min="1" max="65535">
+                    <small class="text-muted">Port for incoming SMDR connections (default 9001).</small>
                 </div>
-            </div>                    
-                    <div class="col-md-4">
-                        <label for="pabx_interval" class="form-label">Check Interval (minutes)</label>
-                        <input type="number" name="pabx_check_interval_minutes" id="pabx_interval" class="form-control" value="{{ settings['pabx_check_interval_minutes'] }}" min="1" max="1440">
-                    </div>
-                    <div class="col-md-2">
-                        <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-circle"></i> Add</button>
-                    </div>
-                </form>
-
-                {% if pabx_servers %}
-                <table class="table table-sm table-striped">
-                    <thead>
-                        <tr><th>Name</th><th>IP</th><th>Action</th></tr>
-                    </thead>
-                    <tbody>
-                        {% for s in pabx_servers %}
-                        <tr>
-                            <td>{{ s.name }}</td>
-                            <td>{{ s.ip }}</td>
-                            <td>
-                                <a href="{{ url_for('auth.delete_pabx', ip=s.ip) }}" class="btn btn-sm btn-danger" onclick="return confirm('Remove this server?')"><i class="bi bi-trash"></i></a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-                {% else %}
-                <p class="text-muted">No servers configured. Add at least one to accept SMDR connections.</p>
-                {% endif %}
+                <div class="col-md-3"></div>
             </div>
+            <hr>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="web_host" class="form-label fw-semibold">Web Interface Host</label>
+                    <input type="text" name="web_host" id="web_host" class="form-control" value="{{ settings['web_host'] }}">
+                    <small class="text-muted">IP address the web dashboard binds to (0.0.0.0 for LAN access).</small>
+                </div>
+                <div class="col-md-3">
+                    <label for="web_port" class="form-label fw-semibold">Web Interface Port</label>
+                    <input type="number" name="web_port" id="web_port" class="form-control" value="{{ settings['web_port'] }}" min="1" max="65535">
+                    <small class="text-muted">Port for the web server (default 5000).</small>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-save me-1"></i> Save</button>
+                </div>
+            </div>
+        </form>
+        <div class="alert alert-info mt-3 mb-0">
+            <i class="bi bi-info-circle me-1"></i> After saving, restart the application for changes to take effect.
         </div>
     </div>
-</body>
-</html>
+</div>
+
+<!-- ============ COMPANY BRANDING ============ -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <i class="bi bi-building me-2"></i> Company Branding
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label for="company_name" class="form-label fw-semibold">Company Name</label>
+                    <input type="text" name="company_name" id="company_name" class="form-control"
+                           value="{{ settings.get('company_name', 'Avaya CDR') }}" placeholder="e.g. Gerrys Telecom">
+                    <small class="text-muted">Appears on PDF exports and the application footer.</small>
+                </div>
+                <div class="col-md-5">
+                    <label for="company_logo_url" class="form-label fw-semibold">Logo URL (optional)</label>
+                    <input type="url" name="company_logo_url" id="company_logo_url" class="form-control"
+                           value="{{ settings.get('company_logo_url', '') }}" placeholder="https://example.com/logo.png">
+                    <small class="text-muted">Public image URL displayed on PDF exports. Leave empty for text-only.</small>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success w-100"><i class="bi bi-save me-1"></i> Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============ PABX SERVERS ============ -->
+<div class="card mb-4">
+    <div class="card-header bg-dark text-white">
+        <i class="bi bi-hdd-network me-2"></i> PABX Servers (Allowed IPs)
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('auth.add_pabx') }}" class="row g-3 mb-4">
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">Server Name</label>
+                <input type="text" name="pabx_name" class="form-control" placeholder="e.g. Main Office" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label fw-semibold">IP Address</label>
+                <input type="text" name="pabx_ip" class="form-control" placeholder="192.168.1.10" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">Monitor Port</label>
+                <input type="number" name="monitor_port" class="form-control" value="80" min="1" max="65535" required>
+                <small class="text-muted">Port to ping for status checks (default 80).</small>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-circle"></i> Add</button>
+            </div>
+        </form>
+
+        {% if pabx_servers %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr><th>Name</th><th>IP</th><th>Monitor Port</th><th class="text-end">Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for s in pabx_servers %}
+                    <tr>
+                        <td><strong>{{ s.name }}</strong></td>
+                        <td>{{ s.ip }}</td>
+                        <td>{{ s.get('monitor_port', 80) }}</td>
+                        <td class="text-end">
+                            <a href="{{ url_for('auth.delete_pabx', ip=s.ip) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove server {{ s.name }}?')">
+                                <i class="bi bi-trash"></i> Remove
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-hdd-stack fs-1 d-block mb-2"></i>
+            No servers configured. Add at least one to accept SMDR connections.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ============ CONNECTION MONITORING ============ -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <i class="bi bi-activity me-2"></i> Connection Monitoring
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label for="pabx_timeout" class="form-label fw-semibold">Online Timeout (minutes)</label>
+                    <input type="number" name="pabx_online_timeout_minutes" id="pabx_timeout" class="form-control"
+                           value="{{ settings['pabx_online_timeout_minutes'] }}" min="1" max="1440">
+                    <small class="text-muted">Time without contact before a PABX is marked offline (default 15).</small>
+                </div>
+                <div class="col-md-5">
+                    <label for="pabx_interval" class="form-label fw-semibold">Check Interval (minutes)</label>
+                    <input type="number" name="pabx_check_interval_minutes" id="pabx_interval" class="form-control"
+                           value="{{ settings['pabx_check_interval_minutes'] }}" min="1" max="1440">
+                    <small class="text-muted">How often the system pings each PABX (default 5).</small>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-info w-100"><i class="bi bi-save me-1"></i> Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ============ EMAIL (SMTP) CONFIGURATION ============ -->
+<!-- ============ EMAIL (SMTP) CONFIGURATION ============ -->
+<div class="card mb-4">
+    <div class="card-header bg-warning text-dark">
+        <i class="bi bi-envelope me-2"></i> Email Configuration (SMTP)
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <!-- Preset selector -->
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Quick Setup</label>
+                <select class="form-select" id="smtp_preset" onchange="applyPreset()">
+                    <option value="">-- Choose a provider --</option>
+                    <option value="gmail">Gmail</option>
+                    <option value="office365">Office 365</option>
+                    <option value="yahoo">Yahoo Mail</option>
+                    <option value="custom">Custom / Other</option>
+                </select>
+                <small class="text-muted">Select a provider to auto‑fill host and port.</small>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label for="smtp_host" class="form-label fw-semibold">SMTP Host</label>
+                    <input type="text" name="smtp_host" id="smtp_host" class="form-control"
+                           value="{{ settings.get('smtp_host', '') }}" placeholder="smtp.gmail.com">
+                </div>
+                <div class="col-md-3">
+                    <label for="smtp_port" class="form-label fw-semibold">Port</label>
+                    <input type="number" name="smtp_port" id="smtp_port" class="form-control"
+                           value="{{ settings.get('smtp_port', '587') }}" min="1" max="65535">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Encryption</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="smtp_protocol" value="starttls" id="proto_starttls"
+                               {% if settings.get('smtp_protocol', 'starttls') == 'starttls' %}checked{% endif %}>
+                        <label class="btn btn-outline-secondary btn-sm" for="proto_starttls">STARTTLS</label>
+
+                        <input type="radio" class="btn-check" name="smtp_protocol" value="ssl" id="proto_ssl"
+                               {% if settings.get('smtp_protocol') == 'ssl' %}checked{% endif %}>
+                        <label class="btn btn-outline-secondary btn-sm" for="proto_ssl">SSL/TLS</label>
+
+                        <input type="radio" class="btn-check" name="smtp_protocol" value="none" id="proto_none"
+                               {% if settings.get('smtp_protocol') == 'none' %}checked{% endif %}>
+                        <label class="btn btn-outline-secondary btn-sm" for="proto_none">None</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label for="smtp_username" class="form-label fw-semibold">Username</label>
+                    <input type="text" name="smtp_username" id="smtp_username" class="form-control"
+                           value="{{ settings.get('smtp_username', '') }}" placeholder="user@gmail.com">
+                </div>
+                <div class="col-md-6">
+                    <label for="smtp_password" class="form-label fw-semibold">Password</label>
+                    <input type="password" name="smtp_password" id="smtp_password" class="form-control"
+                           value="{{ settings.get('smtp_password', '') }}" placeholder="App password">
+                    <small class="text-muted">For Gmail / Office365 use an app‑specific password.</small>
+                </div>
+            </div>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label for="smtp_from_email" class="form-label fw-semibold">From Email</label>
+                    <input type="email" name="smtp_from_email" id="smtp_from_email" class="form-control"
+                           value="{{ settings.get('smtp_from_email', '') }}" placeholder="noreply@example.com">
+                </div>
+                <div class="col-md-4">
+                    <label for="smtp_from_name" class="form-label fw-semibold">From Name</label>
+                    <input type="text" name="smtp_from_name" id="smtp_from_name" class="form-control"
+                           value="{{ settings.get('smtp_from_name', 'Avaya CDR') }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-warning w-100"><i class="bi bi-save me-1"></i> Save</button>
+                </div>
+            </div>
+
+            <!-- Advanced options -->
+            <div class="mt-3">
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" name="smtp_verify_cert" id="smtp_verify_cert"
+                           {% if settings.get('smtp_verify_cert', '1') == '1' %}checked{% endif %}>
+                    <label class="form-check-label" for="smtp_verify_cert">
+                        <i class="bi bi-shield-check me-1"></i> Verify SSL certificate
+                    </label>
+                    <br><small class="text-muted">Turn OFF only for internal/self‑signed servers (default ON).</small>
+                </div>
+            </div>
+
+            <hr>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label for="test_email_address" class="form-label fw-semibold">Test Email Address</label>
+                    <input type="email" name="to_email" id="test_email_address" class="form-control" placeholder="recipient@example.com">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" formaction="{{ url_for('auth.test_email') }}" class="btn btn-outline-warning w-100">
+                        <i class="bi bi-envelope-paper me-1"></i> Test Email
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const presets = {
+        gmail: { host: 'smtp.gmail.com', port: 587, proto: 'starttls' },
+        office365: { host: 'smtp.office365.com', port: 587, proto: 'starttls' },
+        yahoo: { host: 'smtp.mail.yahoo.com', port: 587, proto: 'starttls' },
+        custom: { host: '', port: 587, proto: 'starttls' }
+    };
+
+    function applyPreset() {
+        const preset = document.getElementById('smtp_preset').value;
+        if (!preset) return;
+        const cfg = presets[preset];
+        document.getElementById('smtp_host').value = cfg.host;
+        document.getElementById('smtp_port').value = cfg.port;
+        // Uncheck all protocol radios and check the correct one
+        const radios = document.getElementsByName('smtp_protocol');
+        for (const r of radios) {
+            r.checked = (r.value === cfg.proto);
+        }
+    }
+</script>
+{% endblock %}
