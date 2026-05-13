@@ -14,8 +14,10 @@ def parse_and_save(raw_data, db_path):
     try:
         line = match.group(1).strip()
         row = next(csv.reader(StringIO(line)))
+        # Pad up to 30 fields
         while len(row) < 30:
             row.append('')
+
         call_start   = row[0]
         duration     = row[1]
         ring_time    = int(row[2]) if row[2].strip().isdigit() else 0
@@ -36,6 +38,11 @@ def parse_and_save(raw_data, db_path):
         auth_valid   = int(row[17]) if row[17].strip().isdigit() else 0
         auth_code    = row[18] if row[18] != 'n/a' else None
 
+        # New fields (28‑30)
+        external_targeting_cause = row[27] if len(row) > 27 else ''
+        external_targeter_id     = row[28] if len(row) > 28 else ''
+        external_targeted_number = row[29] if len(row) > 29 else ''
+
         h, m, s = map(int, duration.split(':'))
         sec = (h * 3600) + (m * 60) + s
 
@@ -48,13 +55,16 @@ def parse_and_save(raw_data, db_path):
              caller, direction, called_num, dialled_num, account_code,
              is_internal, call_id, continuation, party1_device, party1_name,
              party2_device, party2_name, hold_time, park_time,
-             auth_valid, auth_code, cost)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             auth_valid, auth_code, cost,
+             external_targeting_cause, external_targeter_id, external_targeted_number)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                    ?, ?, ?)
         ''', (call_start, duration, sec, ring_time,
               caller, direction, called_num, dialled_num, account_code,
               is_int_raw, call_id, continuation, party1_dev, party1_name,
               party2_dev, party2_name, hold_time, park_time,
-              auth_valid, auth_code, 0.0))
+              auth_valid, auth_code, 0.0,
+              external_targeting_cause, external_targeter_id, external_targeted_number))
         conn.commit()
         conn.close()
         logger.info(f"SMDR saved: {party1_name} | {caller} -> {called_num}")

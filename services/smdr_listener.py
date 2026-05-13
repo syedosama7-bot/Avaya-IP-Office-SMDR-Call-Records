@@ -35,16 +35,17 @@ def _set_setting(key, value):
     except Exception as e:
         logger.error(f"Direct set_setting error: {e}")
 
-def _update_pabx_status(ip, name, connected, last_seen=None):
+def _update_pabx_status(ip, name, connected=None, last_seen=None):
     """Update the global PABX status JSON stored in settings."""
     status_json = _get_setting('pabx_status')
     try:
         status = json.loads(status_json) if status_json else {}
     except json.JSONDecodeError:
         status = {}
-    entry = status.get(ip, {'name': name})
+    entry = status.get(ip, {'name': name, 'connected': False})
     entry['name'] = name
-    entry['connected'] = connected
+    if connected is not None:
+        entry['connected'] = connected
     if last_seen:
         entry['last_seen'] = last_seen
     status[ip] = entry
@@ -103,7 +104,8 @@ def start_listener(ip, port, db_path):
                 text = data.decode('utf-8', errors='ignore')
                 for match in re.finditer(r'(\d{4}/\d{2}/\d{2}\s\d{2}:\d{2}:\d{2},.*)', text):
                     parse_and_save(match.group(0), DB_PATH)
-                _update_pabx_status(remote_ip, name, False, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+                # Only update last_seen, leave connected flag as is (monitor decides online status)
+                _update_pabx_status(remote_ip, name, None, datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             else:
                 logger.warning(f"No data from {remote_ip}")
                 _update_pabx_status(remote_ip, name, False, now)
