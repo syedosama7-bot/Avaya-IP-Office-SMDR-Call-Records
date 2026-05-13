@@ -12,8 +12,19 @@ DEFAULTS = {
     'last_backup_status': '',
     'pabx_servers': '[]',
     'pabx_status': '{}',
-    'pabx_online_timeout_minutes': '15',       # <-- comma was missing here
-    'pabx_check_interval_minutes': '5'         # new key for monitor
+    'pabx_online_timeout_minutes': '15',
+    'pabx_check_interval_minutes': '5',
+    'company_name': 'Avaya CDR',
+    'company_logo_url': '',
+    'smtp_host': '',
+    'smtp_port': '587',
+    'smtp_use_tls': '1',
+    'smtp_username': '',
+    'smtp_password': '',
+    'smtp_from_email': '',
+    'smtp_from_name': 'Avaya CDR',
+    'smtp_protocol': 'starttls',
+    'smtp_verify_cert': '1'
 }
 
 def get_setting(key):
@@ -55,11 +66,11 @@ def get_pabx_servers():
 def save_pabx_servers(servers):
     set_setting('pabx_servers', json.dumps(servers))
 
-def add_pabx_server(name, ip):
+def add_pabx_server(name, ip, monitor_port=80):
     servers = get_pabx_servers()
     if any(s['ip'] == ip for s in servers):
         return False
-    servers.append({'name': name, 'ip': ip})
+    servers.append({'name': name, 'ip': ip, 'monitor_port': int(monitor_port)})
     save_pabx_servers(servers)
     return True
 

@@ -35,11 +35,13 @@ def init_db():
             park_time INTEGER DEFAULT 0,
             auth_valid INTEGER,
             auth_code TEXT,
-            cost REAL DEFAULT 0.0
+            cost REAL DEFAULT 0.0,
+            external_targeting_cause TEXT,
+            external_targeter_id TEXT,
+            external_targeted_number TEXT
         )
     ''')
 
-    # Migrate missing columns
     cursor.execute("PRAGMA table_info(calls)")
     existing_columns = [row[1] for row in cursor.fetchall()]
     desired_columns = {
@@ -56,6 +58,9 @@ def init_db():
         'park_time': 'INTEGER DEFAULT 0',
         'auth_valid': 'INTEGER',
         'auth_code': 'TEXT',
+        'external_targeting_cause': 'TEXT',
+        'external_targeter_id': 'TEXT',
+        'external_targeted_number': 'TEXT',
     }
     for col_name, col_type in desired_columns.items():
         if col_name not in existing_columns:
@@ -89,15 +94,23 @@ def init_db():
     cursor.execute("INSERT OR IGNORE INTO users (username, password_hash, role) VALUES (?, ?, ?)",
                    ('admin', generate_password_hash('admin123'), 'admin'))
 
-    # Add last_seen and last_ip columns if missing
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN last_seen TEXT")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        cursor.execute("ALTER TABLE users ADD COLUMN last_ip TEXT")
-    except sqlite3.OperationalError:
-        pass
+    # Migrate missing user columns
+    cursor.execute("PRAGMA table_info(users)")
+    user_columns = [row[1] for row in cursor.fetchall()]
+    user_new = {
+        'last_seen': 'TEXT',
+        'last_ip': 'TEXT',
+        'email': 'TEXT',
+        'email_reports_enabled': 'INTEGER DEFAULT 1',
+        'email_alerts_enabled': 'INTEGER DEFAULT 1',
+    }
+    for col, col_type in user_new.items():
+        if col not in user_columns:
+            try:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+                print(f"[MIGRATION] Added column '{col}' to users")
+            except sqlite3.OperationalError:
+                pass
 
     # Settings table
     cursor.execute('''
@@ -123,6 +136,58 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS force_logout (
             user_id INTEGER PRIMARY KEY
+        )
+    ''')
+
+    # Email log table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS email_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            to_email TEXT,
+            subject TEXT,
+            status TEXT,
+            error_message TEXT,
+            sent_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # Report subscriptions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS report_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            report_type TEXT NOT NULL,
+            frequency TEXT NOT NULL,
+            schedule_day INTEGER DEFAULT 0,
+            schedule_time TEXT DEFAULT '08:00',
+            enabled INTEGER DEFAULT 1,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # ... at the end of init_db, after the existing report_subscriptions CREATE TABLE:
+
+    # Migrate filter_params column for report_subscriptions
+    cursor.execute("PRAGMA table_info(report_subscriptions)")
+    sub_columns = [row[1] for row in cursor.fetchall()]
+    if 'filter_params' not in sub_columns:
+        try:
+            cursor.execute("ALTER TABLE report_subscriptions ADD COLUMN filter_params TEXT")
+            print("[MIGRATION] Added column 'filter_params' to report_subscriptions")
+        except sqlite3.OperationalError as e:
+            print(f"[WARN] Could not add column filter_params: {e}")
+
+
+    # Alert subscriptions table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS alert_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            alert_type TEXT NOT NULL,
+            enabled INTEGER DEFAULT 1,
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
 
