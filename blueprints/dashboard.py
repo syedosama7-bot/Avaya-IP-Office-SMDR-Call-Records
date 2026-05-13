@@ -292,18 +292,18 @@ def connection_status():
     for s in servers_list:
         ip = s['ip']
         info = status_db.get(ip, {})
+        online = info.get('connected', False)
         last_seen_str = info.get('last_seen')
-        online = False
-        if last_seen_str:
+        if not online and last_seen_str:
             try:
                 last_dt = datetime.strptime(last_seen_str, '%Y-%m-%d %H:%M:%S')
                 online = (now - last_dt).total_seconds() <= timeout_minutes * 60
-                if online:
-                    any_connected = True
-                    last_ip = ip
-                    last_seen = last_seen_str
             except:
                 pass
+        if online:
+            any_connected = True
+            last_ip = ip
+            last_seen = last_seen_str or ''
         servers.append({
             'name': s['name'],
             'ip': ip,
